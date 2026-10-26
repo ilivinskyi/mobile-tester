@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import difflib
 import re
+import shlex
 from dataclasses import dataclass
 
 from ..core import state
@@ -40,9 +41,22 @@ def launcher_packages(adb: Adb) -> list[str]:
 
 
 def _version_code(adb: Adb, package: str) -> str:
-    out = adb.shell(f"dumpsys package {package} | grep -m1 versionCode=", check=False)
+    out = adb.shell(f"dumpsys package {shlex.quote(package)} | grep -m1 versionCode=", check=False)
     m = re.search(r"versionCode=(\d+)", out)
     return m.group(1) if m else "?"
+
+
+def base_apk(adb: Adb, package: str) -> str:
+    """Path of the app's base APK on the device (`pm path` lists it first)."""
+    out = adb.shell("pm", "path", package, check=False).splitlines()
+    if not out or not out[0].startswith("package:"):
+        raise LookupError(f"{package} is not installed")
+    return out[0].removeprefix("package:").strip()
+
+
+def manifest(adb: Adb, package: str) -> bytes:
+    """The binary AndroidManifest.xml of an installed app, streamed from its APK (no full download)."""
+    return adb.exec_out(f"unzip -p {shlex.quote(base_apk(adb, package))} AndroidManifest.xml")
 
 
 def label(adb: Adb, package: str, locale: str = "") -> str:
@@ -58,12 +72,12 @@ def label(adb: Adb, package: str, locale: str = "") -> str:
         return cache[key]
     name = package
     try:
-        apk = adb.shell("pm", "path", package).splitlines()[0].removeprefix("package:").strip()
-        found = apkinfo.application_label(adb.exec_out(f"unzip -p {apk} AndroidManifest.xml"))
+        apk = base_apk(adb, package)
+        found = apkinfo.application_label(adb.exec_out(f"unzip -p {shlex.quote(apk)} AndroidManifest.xml"))
         if isinstance(found, str) and found:
             name = found
         elif isinstance(found, apkinfo.ResourceRef):
-            arsc = adb.exec_out(f"unzip -p {apk} resources.arsc", timeout=60)
+            arsc = adb.exec_out(f"unzip -p {shlex.quote(apk)} resources.arsc", timeout=60)
             name = apkinfo.resource_string(arsc, found.res_id, locale) or package
     except Exception:  # noqa: BLE001 - any parsing or adb problem just means "show the package"
         name = package

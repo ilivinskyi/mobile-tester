@@ -41,6 +41,7 @@ class ApkInfo:
     schemes: list[str] = field(default_factory=list)
     cert_sha256: list[str] = field(default_factory=list)
     permissions: list[str] = field(default_factory=list)
+    deep_links: list[str] = field(default_factory=list)
 
 
 # --- binary manifest -------------------------------------------------------------------------
@@ -69,7 +70,7 @@ def _string_pool(data: bytes, offset: int) -> list[str]:
     return strings
 
 
-_TYPE_REFERENCE, _TYPE_STRING, _TYPE_INT_DEC, _TYPE_INT_HEX = 0x01, 0x03, 0x10, 0x11
+_TYPE_REFERENCE, _TYPE_STRING, _TYPE_INT_DEC, _TYPE_INT_HEX, _TYPE_BOOLEAN = 0x01, 0x03, 0x10, 0x11, 0x12
 
 
 @dataclass(frozen=True)
@@ -78,8 +79,8 @@ class ResourceRef:
     res_id: int
 
 
-def _elements(axml: bytes):
-    """Yield (tag, {attribute: str | int | ResourceRef}) for every start tag of a binary XML file."""
+def _events(axml: bytes):
+    """Yield ("start", tag, attributes) and ("end", tag, {}) in document order for a binary XML file."""
     pos = struct.unpack_from("<H", axml, 2)[0]  # skip the XML chunk header
     strings: list[str] = []
     while pos < len(axml):
@@ -96,14 +97,25 @@ def _elements(axml: bytes):
                 key = strings[a_name] if a_name < len(strings) else ""
                 if raw != 0xFFFFFFFF:
                     attrs[key] = strings[raw]
+                elif data_type == _TYPE_BOOLEAN:
+                    attrs[key] = value != 0
                 elif data_type in (_TYPE_INT_DEC, _TYPE_INT_HEX):
                     attrs[key] = value
                 elif data_type == _TYPE_REFERENCE:
                     attrs[key] = ResourceRef(value)
                 else:
                     attrs[key] = raw
-            yield name, attrs
+            yield "start", name, attrs
+        elif chunk_type == 0x0103:
+            yield "end", strings[struct.unpack_from("<I", axml, pos + 20)[0]], {}
         pos += size if size else header_size
+
+
+def _elements(axml: bytes):
+    """Yield (tag, {attribute: str | int | bool | ResourceRef}) for every start tag of a binary XML file."""
+    for kind, name, attrs in _events(axml):
+        if kind == "start":
+            yield name, attrs
 
 
 def parse_manifest(axml: bytes) -> tuple[dict, list[str]]:
@@ -122,6 +134,51 @@ def parse_manifest(axml: bytes) -> tuple[dict, list[str]]:
         elif isinstance(attrs.get("permission"), str):
             permissions.append(attrs["permission"])
     return manifest, sorted(set(permissions))
+
+
+_VIEW, _BROWSABLE = "android.intent.action.VIEW", "android.intent.category.BROWSABLE"
+_PATH_KEYS = {"path": "", "pathPrefix": "*", "pathPattern": "", "pathSuffix": "", "pathAdvancedPattern": ""}
+
+
+def _filter_links(data: list[dict], verified: bool) -> list[str]:
+    """The URIs one intent filter accepts: every scheme with every host and path (that's how Android combines
+    the <data> elements of a filter). `*` after a prefix means any path below it."""
+    schemes = [d["scheme"] for d in data if isinstance(d.get("scheme"), str)]
+    hosts = [d["host"] for d in data if isinstance(d.get("host"), str)]
+    paths = [f"*{d[key]}" if key == "pathSuffix" else d[key] + star
+             for d in data for key, star in _PATH_KEYS.items() if isinstance(d.get(key), str)]
+    links = []
+    for scheme in schemes:
+        if not hosts:
+            links.append(f"{scheme}:")
+            continue
+        for host in hosts:
+            for path in paths or [""]:
+                link = f"{scheme}://{host}{path}"
+                links.append(link + (" (verified App Link)" if verified and scheme in ("http", "https") else ""))
+    return links
+
+
+def deep_links(axml: bytes) -> list[str]:
+    """Links the app opens from a browser, a notification or another app: its VIEW + BROWSABLE intent filters."""
+    links: list[str] = []
+    actions: set[str] = set()
+    categories: set[str] = set()
+    data: list[dict] = []
+    verified = False
+    for kind, name, attrs in _events(axml):
+        if name == "intent-filter" and kind == "start":
+            actions, categories, data, verified = set(), set(), [], attrs.get("autoVerify") is True
+        elif name == "intent-filter":
+            if _VIEW in actions and _BROWSABLE in categories:
+                links += [link for link in _filter_links(data, verified) if link not in links]
+        elif kind == "start" and name == "action":
+            actions.add(str(attrs.get("name", "")))
+        elif kind == "start" and name == "category":
+            categories.add(str(attrs.get("name", "")))
+        elif kind == "start" and name == "data":
+            data.append(attrs)
+    return links
 
 
 def application_label(axml: bytes) -> str | ResourceRef | None:
@@ -298,7 +355,9 @@ def inspect(path: Path) -> dict:
                 subjects[digest] = certificate_subject(der)
         with zipfile.ZipFile(io.BytesIO(data)) as apk:
             if "AndroidManifest.xml" in apk.namelist():
-                manifest, info.permissions = parse_manifest(apk.read("AndroidManifest.xml"))
+                axml = apk.read("AndroidManifest.xml")
+                manifest, info.permissions = parse_manifest(axml)
+                info.deep_links = deep_links(axml)
                 info.package = str(manifest.get("package", ""))
                 info.version_name = str(manifest.get("versionName", ""))
                 info.version_code = str(manifest.get("versionCode", ""))
@@ -315,6 +374,7 @@ def inspect(path: Path) -> dict:
         "same_signer_for_all": len(signer_sets) == 1 and () not in signer_sets,
         "notable_permissions": sorted(p for p in base.permissions if p in NOTABLE_PERMISSIONS),
         "permissions": base.permissions,
+        "deep_links": base.deep_links,
     }
 
 
@@ -340,4 +400,7 @@ def to_text(result: dict) -> str:
     notable = result["notable_permissions"]
     lines.append("permissions of note: " + (", ".join(notable) if notable else "none"))
     lines.append(f"all permissions ({len(result['permissions'])}): " + json.dumps(result["permissions"]))
+    links = result.get("deep_links") or []
+    lines.append(f"deep links ({len(links)}):" if links else "deep links: none declared")
+    lines += [f"  {link}" for link in links]
     return "\n".join(lines)

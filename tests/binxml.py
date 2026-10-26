@@ -17,10 +17,11 @@ def string_pool(strings: list[str]) -> bytes:
     return struct.pack("<HHIIIIII", 0x0001, header, header + len(body), len(strings), 0, 0, starts, 0) + body
 
 
-def binary_xml(elements: list[tuple[str, dict[str, str | int]]]) -> bytes:
-    """A binary XML file (like a compiled AndroidManifest.xml) with these start tags and attributes.
+def binary_xml(elements: list[tuple[str, dict[str, str | int | bool]] | str]) -> bytes:
+    """A binary XML file (like a compiled AndroidManifest.xml) with these tags and attributes.
 
-    Strings become string values, ints become decimal integers.
+    (tag, attributes) is a start tag, "/tag" an end tag. Strings become string values, bools booleans,
+    ints decimal integers.
     """
     strings: list[str] = []
 
@@ -30,12 +31,20 @@ def binary_xml(elements: list[tuple[str, dict[str, str | int]]]) -> bytes:
         return strings.index(s)
 
     chunks = b""
-    for name, attrs in elements:
+    for element in elements:
+        if isinstance(element, str):
+            body = struct.pack("<II", 0xFFFFFFFF, index(element.removeprefix("/")))
+            chunks += struct.pack("<HHIII", 0x0103, 16, 16 + len(body), 1, 0xFFFFFFFF) + body
+            continue
+        name, attrs = element
         name_index = index(name)
         attributes = b""
         for key, value in attrs.items():
             key_index = index(key)
-            if isinstance(value, int):
+            if isinstance(value, bool):
+                attributes += struct.pack("<IIIHBBI", 0xFFFFFFFF, key_index, 0xFFFFFFFF, 8, 0, 0x12,
+                                          0xFFFFFFFF if value else 0)
+            elif isinstance(value, int):
                 attributes += struct.pack("<IIIHBBI", 0xFFFFFFFF, key_index, 0xFFFFFFFF, 8, 0, 0x10, value)
             else:
                 value_index = index(value)

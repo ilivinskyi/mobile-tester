@@ -67,3 +67,34 @@ def test_extract_bundle(tmp_path):
         z.writestr("manifest.json", b"{}")
     files = apkinfo.extract_bundle(bundle, tmp_path / "out")
     assert sorted(f.name for f in files) == ["base.apk", "config.en.apk"]
+
+
+def test_deep_links_come_from_browsable_view_filters():
+    axml = binary_xml([
+        ("manifest", {"package": "com.example.pantry"}),
+        ("activity", {"name": ".MainActivity"}),
+        ("intent-filter", {}),  # the launcher entry: not a link
+        ("action", {"name": "android.intent.action.MAIN"}), "/action",
+        ("category", {"name": "android.intent.category.LAUNCHER"}), "/category",
+        "/intent-filter",
+        ("intent-filter", {"autoVerify": True}),
+        ("action", {"name": "android.intent.action.VIEW"}), "/action",
+        ("category", {"name": "android.intent.category.DEFAULT"}), "/category",
+        ("category", {"name": "android.intent.category.BROWSABLE"}), "/category",
+        ("data", {"scheme": "https"}), "/data",
+        ("data", {"host": "pantry.example.com"}), "/data",
+        ("data", {"pathPrefix": "/item/"}), "/data",
+        "/intent-filter",
+        ("intent-filter", {}),
+        ("action", {"name": "android.intent.action.VIEW"}), "/action",
+        ("category", {"name": "android.intent.category.BROWSABLE"}), "/category",
+        ("data", {"scheme": "pantry", "host": "checkout", "path": "/return"}), "/data",
+        "/intent-filter",
+        ("intent-filter", {}),  # VIEW without BROWSABLE: only reachable from inside the app
+        ("action", {"name": "android.intent.action.VIEW"}), "/action",
+        ("data", {"scheme": "pantry", "host": "internal"}), "/data",
+        "/intent-filter",
+        "/activity",
+    ])
+    assert apkinfo.deep_links(axml) == ["https://pantry.example.com/item/* (verified App Link)",
+                                        "pantry://checkout/return"]

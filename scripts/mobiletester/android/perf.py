@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import statistics
 from pathlib import Path
 
@@ -53,7 +54,7 @@ def parse_meminfo(output: str) -> dict:
 
 
 def launcher_component(adb: Adb, package: str) -> str:
-    out = adb.shell(f"cmd package resolve-activity --brief -c android.intent.category.LAUNCHER {package}",
+    out = adb.shell(f"cmd package resolve-activity --brief -c android.intent.category.LAUNCHER {shlex.quote(package)}",
                     check=False)
     component = out.strip().splitlines()[-1].strip() if out.strip() else ""
     if "/" not in component:

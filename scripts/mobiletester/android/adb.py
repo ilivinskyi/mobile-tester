@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -129,13 +130,18 @@ def pick_serial(devices: list[DeviceInfo], requested: str | None) -> str:
     raise DeviceError(f"several devices connected, pass -s SERIAL: {listing}")
 
 
+_DEVICE_GONE = re.compile(r"device '?[^']*'? not found|device offline|device unauthorized|no devices/emulators found")
+
+
 class Adb:
     """adb bound to a single device serial."""
 
     def __init__(self, serial: str | None = None, adb_path: Path | None = None):
         self.path = adb_path or find_adb()
         requested = serial or os.environ.get("ANDROID_SERIAL")
-        self.serial = pick_serial(list_devices(self.path), requested)
+        # A named device is used as is: listing devices first would cost one more adb call per command.
+        # If it isn't there, the first command says so (see run).
+        self.serial = requested or pick_serial(list_devices(self.path), None)
 
     def _command(self, *args: str) -> list[str]:
         return [str(self.path), "-s", self.serial, *args]
@@ -145,9 +151,14 @@ class Adb:
             proc = subprocess.run(self._command(*args), capture_output=True, timeout=timeout)
         except subprocess.TimeoutExpired as exc:
             raise AdbError(f"adb {' '.join(args)} timed out after {timeout}s") from exc
-        if check and proc.returncode != 0:
+        if proc.returncode != 0:
             err = (proc.stderr or proc.stdout).decode(errors="replace").strip()
-            raise AdbError(f"adb {' '.join(args)} failed ({proc.returncode}): {err}")
+            if _DEVICE_GONE.search(err):
+                # Even for check=False calls: an empty answer from a missing device would look like "nothing".
+                pick_serial(list_devices(self.path), self.serial)  # raises with the device's actual state
+                raise DeviceError(f"device {self.serial}: {err}")
+            if check:
+                raise AdbError(f"adb {' '.join(args)} failed ({proc.returncode}): {err}")
         return proc.stdout
 
     def shell(self, *args: str, timeout: float = 30, check: bool = True) -> str:

@@ -100,7 +100,11 @@ def new_issues(adb: Adb, run: Path, package: str) -> list[LogIssue]:
     seen = state.read_json(_seen_file(adb.serial)) or {}
     if seen.get("file") != str(log):
         seen = {"file": str(log), "offset": 0, "pids": []}
-    pids = set(seen["pids"]) | app_pids(adb.shell("ps", "-A", "-o", "PID,NAME", check=False), package)
+    pids = set(seen["pids"])
+    if not seen["offset"]:
+        # Processes started before logcat was cleared have no "Start proc" line: look them up once.
+        # Later starts (relaunch after a crash, a new :service process) show up in the log itself.
+        pids |= app_pids(adb.shell("ps", "-A", "-o", "PID,NAME", check=False), package)
     with log.open("rb") as fh:
         fh.seek(seen["offset"])
         data = fh.read()

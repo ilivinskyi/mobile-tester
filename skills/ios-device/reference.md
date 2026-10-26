@@ -88,6 +88,11 @@ Taps on an element go to a random point near its center that no other control co
 | `app reset BUNDLE [--level restart\|clear-data] [--allow-risk "APPROVAL"]` | known start state: terminate, reinstall (`clear-data`: the `.app` idt installed last), launch, wait until the screen settles; adds itself to the session's `setup_steps_fast`. Says so when the app isn't in front afterwards (a system alert). `clear-data` on a personal device needs `--allow-risk` |
 | `app install PATH.app [--allow-risk "APPROVAL"]` | a simulator build on a simulator, a signed device build on a device (a mix-up is refused); `.ipa`: unzip it and install `Payload/<name>.app`. On a personal device needs `--allow-risk` |
 | `app uninstall BUNDLE [--allow-risk "APPROVAL"]` | on a personal device needs `--allow-risk` |
+| `app links BUNDLE [--app PATH]` | URL schemes (Info.plist) and Universal Link domains (entitlements, via codesign); on a device pass the `.app` |
+| `open URI [--package BUNDLE] [--cold]` | open a URL scheme, Universal Link or callback (simulators), then show the screen; `--cold` stops the app first |
+| `permissions grant\|revoke\|reset BUNDLE [SERVICE...]` | simulators: `calendar contacts location location-always photos photos-add media-library microphone motion reminders siri` (default `all`). Camera and notifications can't be set: reinstall to see those prompts again |
+| `env [--dark on\|off] [--text-size SIZE] [--reset]` | simulators: appearance and Dynamic Type size (`extra-small` ... `accessibility-extra-extra-extra-large`); restored by `env --reset` or `session end` |
+| `media add FILE` / `clipboard get\|set TEXT` / `location LAT LON\|--clear` / `bio enroll\|match\|fail` | simulators: Photos, clipboard, simulated location, Face ID / Touch ID |
 
 ## Sessions and evidence
 
@@ -103,6 +108,7 @@ Taps on an element go to a random point near its center that no other control co
 | `hook NAME --package P [-- ARGS]` | runs `.mobile-tester/apps/P/hooks/NAME.(py\|sh)` |
 | `check NAME --package P [-- ARGS]` | runs `.mobile-tester/apps/P/checks/NAME.(py\|sh)` |
 | `report check RUN` / `report build RUN` / `report confirm ...` | as in adt: the same report on both platforms |
+| `finding add\|update\|retract`, `report set\|add\|diff` | as in adt: findings and session facts without editing files, and two runs compared |
 | `issues list\|sync\|set ...` | as in adt: the app's known issues in `.mobile-tester/apps/P/known-issues.json` |
 
 Hook and check scripts receive `IDT_UDID`, `IDT` (command line for idt), `MT_PLATFORM` (`iOS`), `MT_PYTHON` and `MT_SCRIPT` (to call idt from Python), `MT_PACKAGE`, `MT_APP_DIR`, `MT_RUN_DIR`, and `MT_SECRETS` when `secrets.local.yaml` exists.

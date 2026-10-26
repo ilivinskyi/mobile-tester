@@ -339,6 +339,14 @@ In Claude Code, `/android-native-tester` and `/ios-native-tester` start the same
 | `memory` | "Check the product screens for memory leaks" | Repeats flows and watches live Activities, Views and memory per cycle to find leaks (Android only for now) |
 
 On Android, the app's own log is checked after each action (errors, caught exceptions, network failures, out of memory), and memory is sampled every 10 actions; both end up in the report.
+
+The tools also cover what manual QA always checks:
+- **Process death:** `adt app kill-background` kills the app in the background the way Android does under memory pressure, returns to it and compares the screen.
+- **Permissions:** apps install without pre-granted permissions, so their prompts appear; `permissions grant|revoke|reset` changes them mid-session.
+- **Links:** `app links` lists the deep links and Universal Links an app declares, `open` opens them from a cold or warm start.
+- **Config and network:** `env` (dark mode, font or text size, orientation, RTL) and `adt net offline|online`; every changed setting is restored at `session end`.
+- **OS handoffs:** notifications, gallery media, clipboard, location and Face ID / Touch ID / fingerprint, where the platform allows it (some only on emulators and simulators).
+- **Build comparison:** `report diff RUN_A RUN_B` compares two runs: performance, new findings, issues gone, new log errors, screens reached.
 On iOS, the app's unified log is recorded with the session and every action checks for a new crash report.
 
 ### After the session

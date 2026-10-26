@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import re
+import shlex
 import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from ..core import annotate, state
+from ..core import annotate, session, state
 from ..core.fingerprint import screen_fingerprint
 from . import hierarchy, keyboard
 from .adb import Adb, AdbError
@@ -153,15 +154,6 @@ def snapshot(adb: Adb) -> tuple[Snapshot, str]:
     return hierarchy.parse(xml, display=tuple(_display_info(adb)["display"])), xml
 
 
-def _fingerprint(package: str, activity: str, elements: list[hierarchy.Element]) -> str:
-    """'-' while screen_fingerprint isn't implemented. Nothing depends on it yet: the coverage map and
-    selector cache that will use it are planned, so observing must not fail without it."""
-    try:
-        return screen_fingerprint(package, activity, elements)
-    except NotImplementedError:
-        return "-"
-
-
 @dataclass
 class Observation:
     snapshot: Snapshot
@@ -199,7 +191,7 @@ def observe(adb: Adb, save_dir: Path | None = None, name: str | None = None, wit
     package, activity = foreground_activity(adb)
     package = package or snap.package
     dpi = _display_info(adb)["density"]
-    fp = _fingerprint(package, activity, snap.elements)
+    fp = screen_fingerprint(package, activity, snap.elements)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")[:-3]
 
     (ddir / "latest.xml").write_text(xml, encoding="utf-8")
@@ -216,6 +208,9 @@ def observe(adb: Adb, save_dir: Path | None = None, name: str | None = None, wit
     if save_dir is not None:
         obs = _save_copy(obs, xml, save_dir, name or stamp)
     state.write_json(ddir / "latest.json", obs.to_dict())
+    # Screens visited, for `report diff` between runs (and a future coverage map).
+    session.log_action(adb.serial, {"action": "observe", "mode": "read", "fp": fp,
+                                    "screen": f"{package}/{activity.removeprefix(package)}"})
     return obs
 
 
@@ -370,8 +365,10 @@ def app_reset(adb: Adb, package: str, level: str, timeout: float = 20.0) -> tupl
                    f"(foreground: {foreground or 'unknown'})")
 
 
-def app_install(adb: Adb, apk: Path) -> str:
-    return adb.run("install", "-r", "-g", str(apk), timeout=300).decode(errors="replace").strip()
+def app_install(adb: Adb, apk: Path, grant_all: bool = False) -> str:
+    """Install without granting runtime permissions, so the app's own prompts appear like on a fresh install."""
+    grant = ["-g"] if grant_all else []
+    return adb.run("install", "-r", *grant, str(apk), timeout=300).decode(errors="replace").strip()
 
 
 def app_list(adb: Adb, third_party: bool = True) -> list[str]:
@@ -380,7 +377,8 @@ def app_list(adb: Adb, third_party: bool = True) -> list[str]:
 
 
 def app_info(adb: Adb, package: str) -> dict:
-    out = adb.shell(f"dumpsys package {package} | grep -E 'versionName|versionCode|targetSdk|firstInstallTime'")
+    fields = "versionName|versionCode|targetSdk|firstInstallTime"
+    out = adb.shell(f"dumpsys package {shlex.quote(package)} | grep -E '{fields}'")
     info: dict[str, str] = {"package": package}
     for key_, value in re.findall(r"(versionName|versionCode|targetSdk|minSdk|firstInstallTime)=(\S+)", out):
         info.setdefault(key_, value)

@@ -52,7 +52,7 @@ Memory mode is Android only for now: offer explore mode on the same flows instea
 4. Hooks: run `idt hook setup --package BUNDLE` when the profile defines it.
 5. Start the session: `idt session start --package BUNDLE --mode MODE --charter "..." [--ticket KEY] --record --log` (on a device there is no app log yet: it says so, and `logs/app.log` stays absent; write that in `not_covered`).
    Without `--dir` the run folder is `<reports dir from config.yaml>/<YYYY-MM-DD>-<app>-<mode>[-<ticket>]`, a new one per session; it prints the folder.
-   It also fills the title, the tester, the platform and the device from the profile, config and simulator or device. Then fill `session.json` with ticket details, time box and app install source (see [report-standard.md](../mobile-tester-shared/report-standard.md)).
+   It also fills the title, the tester, the platform and the device from the profile, config and simulator or device. Then set ticket details, time box and app install source with `idt report set RUN ...` (session.json) (see [report-standard.md](../mobile-tester-shared/report-standard.md)).
 6. Bring the app to the start state (below). This also logs in when the profile's login needs it.
 
 ### Start state
@@ -97,7 +97,7 @@ Problems outside the charter (another screen, an unrelated feature):
   Note what you saw and where; don't spend session time reproducing them unless they block the charter.
 
 While testing:
-- Write each finding into `findings.json` as soon as it's verified, not at the end. Fields and severity scale: [report-standard.md](../mobile-tester-shared/report-standard.md).
+- Write each finding with `idt finding add RUN ...` as soon as it's verified, not at the end, and change it with `finding update` / `finding retract`; never edit `findings.json` or `session.json` by hand. Fields and severity scale: [report-standard.md](../mobile-tester-shared/report-standard.md).
 - Before writing a finding, check the raw source that proves it: `idt inspect --index N` for an element (never the whole saved tree), the screenshot, the relevant lines of `logs/app.log` (search them, don't read the file whole), or the crash report. If a finding turns out wrong, set it to Retracted with the reason; never delete it.
 - Save evidence with `idt observe --name <id>-<what>` and note the action log time for video clips.
 - A finding that matches an open known issue (same behaviour in the same area): set `"known_issue": "K-n"` and keep it short; don't re-investigate. It shows as "seen again".

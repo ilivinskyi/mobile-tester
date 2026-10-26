@@ -17,7 +17,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ..core import clip, commands, project, screen, session, state, ui
+from ..core import clip, commands, project, restore, screen, session, state, ui
 from ..core.commands import (
     EXIT_BLOCKED,
     EXIT_DECISION,
@@ -446,6 +446,123 @@ def _installed_app(dev: Device, bundle_id: str) -> Path | None:
     return Path(known) if known and Path(known).is_dir() else None
 
 
+def cmd_open(args, dev: Device) -> int:
+    """Open a link the way Safari, a notification or another app does, and show where it landed."""
+    if dev.physical:
+        print("error: opening links is supported on simulators only for now; on a device open it from Notes or "
+              "Safari by hand")
+        return EXIT_USAGE
+    if args.cold:
+        if not args.package:
+            print("error: --cold needs --package, the app to stop first")
+            return EXIT_USAGE
+        dev.tool.terminate(dev.udid, args.package)
+    before = device.last_observation(dev.udid)
+    simctl.open_url(dev.udid, args.uri)
+    session.log_action(dev.udid, {"action": "open-link", "mode": "intent", "uri": args.uri,
+                                  "package": args.package, "cold": args.cold})
+    if args.package:
+        dev.remember_app(args.package)
+    time.sleep(1.5)
+    print(f"opened {args.uri}")
+    obs = device.observe(dev, bundle_id=args.package, save_dir=_session_shots(dev))
+    _print_observation(obs, as_json=False, previous=commands.previous_elements(before, obs.fingerprint))
+    print("next: go back (left-edge swipe or the app's back button) and check where it goes; then `idt crashes`")
+    return EXIT_OK
+
+
+def cmd_env(args, dev: Device) -> int:
+    if dev.physical:
+        print("error: appearance and text size can only be changed on a simulator; on a device use Settings > "
+              "Display & Brightness and Settings > Accessibility > Display & Text Size yourself")
+        return EXIT_USAGE
+    if args.reset:
+        restored = simctl.ui_restore(dev.udid)
+        print("restored: " + (", ".join(restored) or "nothing was changed"))
+        return EXIT_OK
+    wanted = {k: v for k, v in (("appearance", {"on": "dark", "off": "light"}.get(args.dark)),
+                                ("content_size", args.text_size)) if v}
+    if not wanted:
+        print("nothing to change: pass --dark or --text-size (or --reset)")
+        return EXIT_USAGE
+    for setting, value in wanted.items():
+        restore.remember(dev.udid, setting, simctl.ui_get(dev.udid, setting))
+        simctl.ui_set(dev.udid, setting, value)
+    session.log_action(dev.udid, {"action": "env", "mode": "setup", **wanted})
+    print("changed: " + ", ".join(f"{k} {v}" for k, v in wanted.items())
+          + ". `env --reset` or `session end` puts it back.")
+    return EXIT_OK
+
+
+def _simulator_only(dev: Device, what: str) -> int | None:
+    if dev.physical:
+        print(f"error: {what} works on simulators only; on an iPhone or iPad do it by hand")
+        return EXIT_USAGE
+    return None
+
+
+def cmd_media(args, dev: Device) -> int:
+    if (code := _simulator_only(dev, "adding media")) is not None:
+        return code
+    simctl.add_media(dev.udid, Path(args.file))
+    session.log_action(dev.udid, {"action": "media-add", "mode": "setup", "file": Path(args.file).name})
+    print(f"added {Path(args.file).name} to Photos")
+    return EXIT_OK
+
+
+def cmd_clipboard(args, dev: Device) -> int:
+    if (code := _simulator_only(dev, "the clipboard")) is not None:
+        return code
+    if args.clip_cmd == "get":
+        print(simctl.clipboard_get(dev.udid))
+    else:
+        simctl.clipboard_set(dev.udid, args.text)
+        print("clipboard set")
+    return EXIT_OK
+
+
+def cmd_location(args, dev: Device) -> int:
+    if (code := _simulator_only(dev, "setting the location")) is not None:
+        return code
+    if args.clear:
+        simctl.clear_location(dev.udid)
+        print("location cleared")
+        return EXIT_OK
+    if args.latitude is None or args.longitude is None:
+        print("error: pass LATITUDE LONGITUDE, or --clear")
+        return EXIT_USAGE
+    simctl.set_location(dev.udid, args.latitude, args.longitude)
+    session.log_action(dev.udid, {"action": "location", "mode": "setup", "lat": args.latitude,
+                                  "lon": args.longitude})
+    print(f"location set to {args.latitude}, {args.longitude}")
+    return EXIT_OK
+
+
+def cmd_bio(args, dev: Device) -> int:
+    if (code := _simulator_only(dev, "Face ID / Touch ID")) is not None:
+        return code
+    simctl.biometrics(dev.udid, args.action)
+    session.log_action(dev.udid, {"action": f"bio-{args.action}", "mode": "setup"})
+    print({"enroll": "Face ID / Touch ID enrolled", "match": "a matching face/finger was presented",
+           "fail": "a non-matching face/finger was presented"}[args.action])
+    return EXIT_OK
+
+
+def cmd_permissions(args, dev: Device) -> int:
+    if dev.physical:
+        print("error: permissions can only be changed on a simulator; on an iPhone or iPad change them in "
+              "Settings > Privacy & Security yourself, or reinstall the app to see its prompts again")
+        return EXIT_USAGE
+    services = args.services or ["all"]
+    for service in services:
+        simctl.privacy(dev.udid, args.perm_cmd, service, args.package)
+    session.log_action(dev.udid, {"action": f"permissions-{args.perm_cmd}", "mode": "setup",
+                                  "package": args.package, "services": services})
+    print(f"{args.perm_cmd}: {', '.join(services)} for {args.package}"
+          + ("; iOS ends the app if it was running" if args.perm_cmd == "revoke" else ""))
+    return EXIT_OK
+
+
 def cmd_app(args, dev: Device) -> int:
     match args.app_cmd:
         case "launch":
@@ -476,6 +593,16 @@ def cmd_app(args, dev: Device) -> int:
             print(f"uninstalled {args.package}")
         case "info":
             print(json.dumps(dev.tool.app_info(dev.udid, args.package), indent=1))
+        case "links":
+            if args.app:
+                app = Path(args.app)
+            elif dev.physical:
+                print("error: on a device the app's files can't be read: pass --app with its .app build")
+                return EXIT_USAGE
+            else:
+                app = simctl.app_path(dev.udid, args.package)
+            found = simctl.links(app)
+            print("\n".join(found) if found else f"{args.package} declares no URL schemes or Universal Links")
         case "list":
             for bundle, info in sorted(dev.tool.apps(dev.udid).items()):
                 if info.get("ApplicationType") == "System" and not args.all:
@@ -673,6 +800,8 @@ def cmd_session(args, dev: Device) -> int:
                 print(f"app log: {capture.log_stop(dev.udid)}")
             run = session.end(dev.udid)
             print(f"session ended: {run}")
+            if not dev.physical and (restored := simctl.ui_restore(dev.udid)):
+                print("restored simulator settings: " + ", ".join(restored))
             if run and not args.no_report:
                 commands.report_after_session(run, "idt")
         case "status":
@@ -807,9 +936,46 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--gone", action="store_true")
     p.add_argument("--timeout", type=float, default=10)
 
+    p = sub.add_parser("media", help="add photos or videos to Photos for upload and picker tests (simulators)")
+    med = commands.subparsers(p, common, dest="media_cmd", required=True)
+    mp = med.add_parser("add")
+    mp.add_argument("file")
+    p = sub.add_parser("clipboard", help="read or set the simulator's clipboard (copy buttons, pasted codes)")
+    clip_sub = commands.subparsers(p, common, dest="clip_cmd", required=True)
+    clip_sub.add_parser("get")
+    cp = clip_sub.add_parser("set")
+    cp.add_argument("text")
+    p = sub.add_parser("location", help="set or clear the simulated location (simulators)")
+    p.add_argument("latitude", type=float, nargs="?")
+    p.add_argument("longitude", type=float, nargs="?")
+    p.add_argument("--clear", action="store_true")
+    p = sub.add_parser("bio", help="Face ID / Touch ID on a simulator: enroll, then present a match or a failure")
+    p.add_argument("action", choices=["enroll", "match", "fail"])
+
+    p = sub.add_parser("env", help="config stress on a simulator: dark mode, text size (restored at session end)")
+    p.add_argument("--dark", choices=["on", "off"])
+    p.add_argument("--text-size", dest="text_size", choices=list(simctl.CONTENT_SIZES))
+    p.add_argument("--reset", action="store_true", help="put back everything env changed")
+
+    p = sub.add_parser("permissions", help="grant, revoke or reset an app's privacy permissions (simulators)")
+    perm = commands.subparsers(p, common, dest="perm_cmd", required=True)
+    for name in ("grant", "revoke", "reset"):
+        pp = perm.add_parser(name)
+        pp.add_argument("package", help="bundle id")
+        pp.add_argument("services", nargs="*", choices=list(simctl.PRIVACY_SERVICES), metavar="SERVICE",
+                        help="one or more of: " + ", ".join(simctl.PRIVACY_SERVICES) + " (default: all)")
+
     p = sub.add_parser("app", help="app management (setup operations)")
     app = commands.subparsers(p, common, dest="app_cmd", required=True)
     personal_help = "the user's approval, needed on a personal device"
+    ap = app.add_parser("links", help="URL schemes and Universal Link domains the app declares")
+    ap.add_argument("package", help="bundle id")
+    ap.add_argument("--app", help="read this .app build instead of the installed one (needed on devices)")
+    p_open = sub.add_parser("open", help="open a link (URL scheme, Universal Link, OAuth callback) and show the "
+                                         "screen (simulators)")
+    p_open.add_argument("uri")
+    p_open.add_argument("--package", help="bundle id of the app that should handle it")
+    p_open.add_argument("--cold", action="store_true", help="stop the app first, to open the link from a cold start")
     for name in ("launch", "stop", "uninstall", "info"):
         ap = app.add_parser(name)
         ap.add_argument("package", help="bundle id")
@@ -889,12 +1055,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 _NO_DEVICE = {"doctor": cmd_doctor, "devices": cmd_devices, "report": commands.cmd_report,
-              "issues": commands.cmd_issues}
+              "issues": commands.cmd_issues, "finding": commands.cmd_finding}
 _WITH_DEVICE = {
     "runner": cmd_runner, "info": cmd_info, "observe": cmd_observe, "inspect": cmd_inspect, "tap": cmd_tap,
     "type": cmd_type, "key": cmd_key, "swipe": cmd_swipe, "scroll": cmd_scroll, "wait": cmd_wait, "app": cmd_app,
-    "log": cmd_log, "crashes": cmd_crashes, "record": cmd_record, "clip": cmd_clip, "session": cmd_session,
-    "hook": cmd_script, "check": cmd_script,
+    "permissions": cmd_permissions, "env": cmd_env, "media": cmd_media, "clipboard": cmd_clipboard,
+    "location": cmd_location, "bio": cmd_bio, "open": cmd_open, "log": cmd_log, "crashes": cmd_crashes,
+    "record": cmd_record, "clip": cmd_clip, "session": cmd_session, "hook": cmd_script, "check": cmd_script,
 }
 
 

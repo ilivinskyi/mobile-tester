@@ -86,7 +86,16 @@ Taps on an element go to a random point near its center that no other control co
 | `app stop PKG` | force-stop |
 | `app clear PKG` | wipes app data: ask first on physical devices |
 | `app reset PKG [--level restart\|clear-data] [--timeout 20]` | known start state: force-stop, clear data (`clear-data` only: ask first on personal devices), launch, wait until the app is in front and the screen settles; adds itself to the session's `setup_steps_fast`. Says so when a system permission dialog is on top |
-| `app install FILE` | `.apk`, or `.xapk` / `.apks` bundles (split APKs) |
+| `app install FILE [--grant-all]` | `.apk`, or `.xapk` / `.apks` bundles (split APKs). Runtime permissions are not granted, so the app's own prompts appear; `--grant-all` grants them all (setup only) |
+| `app links PKG` | deep links the app declares (browsable intent filters from its manifest); `(verified App Link)` for domains Android checks |
+| `app kill-background PKG [--wait 2]` | home, then kill the process like Android does under memory pressure, return through the launcher, report a crash and whether it's the same screen as before (observe first). Exit 6 when Android keeps the process alive (foreground service) |
+| `open URI [--package PKG] [--cold]` | open a deep link, App Link, OAuth or payment callback as another app would; prints launch state (COLD/WARM/HOT), crash, and the screen. `--cold` stops the app first. Then press back: the back stack must make sense |
+| `permissions list\|grant\|revoke\|reset PKG [NAMES...]` | runtime permissions: names like `camera`, `location`, `notifications`, `photos` or full `android.permission.*`. Revoking kills the app's process (a classic crash test: revoke while it's in the background, then return). `reset` revokes all and clears "don't ask again" |
+| `env [--dark on\|off] [--font-scale 2.0] [--orientation landscape] [--rtl on] [--reset] [--approval "..."]` | config stress; originals are recorded and restored by `env --reset` or `session end`. A system setting: needs `--approval` on a physical device |
+| `net offline\|online [--approval "..."]` | airplane mode on/off, restored by `session end`; refused when adb runs over Wi-Fi (it would cut the connection) |
+| `notifications [--package PKG]` | active notifications: app, title, text, action buttons |
+| `media push FILE` | a photo or video into the gallery (for uploads and pickers) |
+| `location LAT LON` / `bio match\|fail` | GPS position / fingerprint sensor, emulators only |
 | `apk inspect FILE` | package, version, signing certificates per APK, permissions of note: run before installing a build from outside a store |
 
 ## Sessions and evidence
@@ -116,6 +125,17 @@ Taps on an element go to a random point near its center that no other control co
 
 Hook and check scripts receive `ANDROID_SERIAL`, `ADB`, `ADT` (command line for adt), `MT_PLATFORM` (`Android`), `MT_PYTHON` and `MT_SCRIPT` (to call adt from Python), `MT_PACKAGE`, `MT_APP_DIR`, `MT_RUN_DIR`, and `MT_SECRETS` when `secrets.local.yaml` exists.
 Python scripts run with `uv run --script`, so they may declare their own dependencies (PEP 723).
+
+## Findings and session facts (no file editing)
+
+| Command | Notes |
+|---|---|
+| `finding add RUN ID --type T --title "..." [--severity] [--priority] [--status] [--area] [--steps S1 S2 ...] [--expected] [--actual] [--automated N/M] [--manual N/M] [--evidence PATH[::CAPTION] ...] [--preconditions ...] [--notes] [--scope outside] [--known-issue K-n]` | appends to `findings.json` and runs the report checks on it at once: `problem:` lines and exit 2 mean saved but incomplete |
+| `finding update RUN ID [same flags]` | changes the given fields; `--evidence` adds files (`--clear-evidence` first to replace) |
+| `finding retract RUN ID --reason "..."` | status Retracted with the reason; findings are never deleted |
+| `report set RUN FIELD VALUE` | session.json `title`, `subtitle`, `summary`, `charter`, `tester`, `mode`, `time_box_min` |
+| `report add RUN FIELD VALUE ...` | adds to `worked_well`, `coverage`, `not_covered` |
+| `report diff RUN_A RUN_B` | two runs side by side (e.g. two builds): performance changes (10% worse is called out), new findings, known issues no longer seen, new app log issues, screens reached in only one run |
 
 ## Exit codes
 

@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from . import lifecycle, report, ui
+from . import diff, findings, lifecycle, report, ui
 from .state import PROJECT_DIR
 
 EXIT_OK, EXIT_USAGE, EXIT_DEVICE, EXIT_NOT_FOUND, EXIT_BLOCKED, EXIT_DECISION = 0, 2, 3, 4, 5, 6
@@ -93,6 +93,11 @@ def cmd_issues(args) -> int:
 def cmd_report(args) -> int:
     if args.report_cmd == "confirm":
         return _report_confirm(args)
+    if args.report_cmd in ("set", "add"):
+        return _report_fields(args)
+    if args.report_cmd == "diff":
+        print("\n".join(diff.compare(Path(args.dir), Path(args.other))))
+        return EXIT_OK
     run = Path(args.dir)
     problems = report.check(run)
     if args.report_cmd == "check" or problems:
@@ -106,6 +111,68 @@ def cmd_report(args) -> int:
     for path in report.build(run):
         print(f"wrote {path}")
     return EXIT_OK
+
+
+def cmd_finding(args) -> int:
+    run = Path(args.dir)
+    values = {k: getattr(args, k, None) for k in (*findings.SCALAR_FIELDS, *findings.LIST_FIELDS, "automated",
+                                                  "manual", "evidence", "clear_evidence")}
+    try:
+        match args.finding_cmd:
+            case "add":
+                problems = findings.add(run, args.id, values)
+            case "update":
+                problems = findings.update(run, args.id, values)
+            case _:
+                problems = findings.retract(run, args.id, args.reason)
+    except findings.FindingError as exc:
+        print(f"error: {exc}")
+        return EXIT_USAGE
+    print(f"{args.finding_cmd}: {args.id} saved in {run / 'findings.json'}")
+    for p in problems:
+        print(f"problem: {p}")
+    if problems:
+        print(f"fix with `finding update {run} {args.id} ...`; the report check fails until then")
+        return EXIT_USAGE
+    return EXIT_OK
+
+
+def _report_fields(args) -> int:
+    run = Path(args.dir)
+    try:
+        if args.report_cmd == "set":
+            findings.session_set(run, args.field, args.value)
+        else:
+            findings.session_add(run, args.field, args.values)
+    except (findings.FindingError, ValueError) as exc:
+        print(f"error: {exc}")
+        return EXIT_USAGE
+    print(f"session.json: {args.field} updated")
+    return EXIT_OK
+
+
+def _finding_args(p: argparse.ArgumentParser, adding: bool) -> None:
+    p.add_argument("dir", help="run folder")
+    p.add_argument("id", help="B1.. bugs, A1.. accessibility, O1.. observations")
+    p.add_argument("--title", required=adding)
+    p.add_argument("--type", choices=list(report.TYPES), required=adding)
+    p.add_argument("--status", choices=list(report.STATUSES), default="Confirmed" if adding else None)
+    p.add_argument("--severity", choices=list(report.SEVERITIES))
+    p.add_argument("--priority", choices=list(report.PRIORITIES))
+    p.add_argument("--area")
+    p.add_argument("--summary", help="one line for the finding list")
+    p.add_argument("--preconditions", nargs="+", metavar="TEXT")
+    p.add_argument("--steps", nargs="+", metavar="STEP", help="one argument per step, from the preconditions")
+    p.add_argument("--expected")
+    p.add_argument("--actual")
+    p.add_argument("--automated", metavar="N/M", help="reproduced by automation, e.g. 3/3")
+    p.add_argument("--manual", metavar="N/M", help="reproduced by a person, e.g. 1/1 or 'not tried'")
+    p.add_argument("--evidence", nargs="+", metavar="PATH[::CAPTION]",
+                   help="files relative to the run folder; added to the existing evidence")
+    p.add_argument("--clear-evidence", action="store_true", help="drop the existing evidence first")
+    p.add_argument("--notes")
+    p.add_argument("--scope", choices=list(report.SCOPES))
+    p.add_argument("--known-issue", dest="known_issue", metavar="K-N")
 
 
 def subparsers(parser: argparse.ArgumentParser, common: argparse.ArgumentParser, **kwargs):
@@ -135,6 +202,27 @@ def add_parsers(sub, common: argparse.ArgumentParser) -> None:
     rp.add_argument("--note")
     rp.add_argument("--device", help="default: the session's device")
     rp.add_argument("--build", help="default: the session's build")
+    rp = rep.add_parser("diff", help="compare two runs (e.g. two builds): performance, findings, app log, screens")
+    rp.add_argument("dir", help="run A (before)")
+    rp.add_argument("other", help="run B (after)")
+    rp = rep.add_parser("set", help="set a session.json field: " + ", ".join(findings.SESSION_TEXT
+                                                                              + findings.SESSION_INT))
+    rp.add_argument("dir")
+    rp.add_argument("field", choices=list(findings.SESSION_TEXT + findings.SESSION_INT))
+    rp.add_argument("value")
+    rp = rep.add_parser("add", help="add items to a session.json list: " + ", ".join(findings.SESSION_LISTS))
+    rp.add_argument("dir")
+    rp.add_argument("field", choices=list(findings.SESSION_LISTS))
+    rp.add_argument("values", nargs="+")
+
+    p = sub.add_parser("finding", help="write findings.json: add, update or retract a finding (validated at once)")
+    fnd = subparsers(p, common, dest="finding_cmd", required=True)
+    _finding_args(fnd.add_parser("add", help="a new finding"), adding=True)
+    _finding_args(fnd.add_parser("update", help="change fields of a finding; evidence is added"), adding=False)
+    rp = fnd.add_parser("retract", help="mark a finding Retracted, with the reason (never delete one)")
+    rp.add_argument("dir")
+    rp.add_argument("id")
+    rp.add_argument("--reason", required=True)
 
     p = sub.add_parser("issues", help="the app's known-issues registry (.mobile-tester/apps/<package>/)")
     iss = subparsers(p, common, dest="issues_cmd", required=True)

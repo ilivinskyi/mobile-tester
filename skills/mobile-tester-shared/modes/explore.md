@@ -18,6 +18,9 @@ Work area by area, like a curious, slightly impatient user:
 - **Roles:** when `about.roles` lists several, check that each sees and can do only what it should.
 - **Inputs:** empty, very long, special characters (`%`, `&`, quotes, `<b>`, `$(x)`), emoji, other scripts, numbers at limits (0, negative, 999, decimals).
 - **Interruptions:** back in the middle of a flow (iOS: the edge swipe and the app's back button), app switch, stop and relaunch, rotate (emulator or simulator), notification permission denied.
+  On Android also `adt app kill-background` in the middle of a flow (the process killed to free memory: the screen must come back as it was), and `permissions revoke` while the app is in the background.
+- **Links:** `app links` lists the links the app declares; open them with `open` from a cold start (`--cold`) and while the app runs, then press back.
+- **Offline:** on Android, `adt net offline` before a submit, a search or loading more, then `net online`: look for endless spinners, lost or doubled submissions, wrong messages.
 - **State:** does entered data, login or unfinished work survive a restart? Do changes show up everywhere they should?
 - **Prompts:** permissions, consent and rating prompts: follow the auto-mode defaults, note how they behave and what they cover.
 - **External handoffs:** links that open the browser, login custom tabs, store pages: does the app recover when you come back?

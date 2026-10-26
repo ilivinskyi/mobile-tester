@@ -31,7 +31,8 @@ Crop evidence to the problem area and keep the full screenshot next to it.
 ## Config stress (emulator or simulator, or a phone only with approval)
 
 Font size largest (Dynamic Type on iOS), display size largest, dark mode, landscape, RTL language.
-On a personal phone each of these is a system-setting change: ask first, and restore it afterwards.
+Use `adt env --font-scale 2.0 --dark on --orientation landscape --rtl on` or `idt env --text-size accessibility-extra-extra-extra-large --dark on`: they record the original settings, and `env --reset` or `session end` restores them.
+On a personal phone each of these is a system-setting change: ask first and pass the approval (`--approval`).
 
 ## Screen reader (optional)
 

@@ -218,6 +218,9 @@ def observe(dev: Device, bundle_id: str | None = None, save_dir: Path | None = N
                 copy.write_bytes(source.read_bytes())
                 setattr(obs, attr, copy)
     state.write_json(ddir / "latest.json", obs.to_dict())
+    # Screens visited, for `report diff` between runs (and a future coverage map).
+    session.log_action(dev.udid, {"action": "observe", "mode": "read", "fp": fp,
+                                  "screen": f"{target} {title}".strip()})
     return obs
 
 

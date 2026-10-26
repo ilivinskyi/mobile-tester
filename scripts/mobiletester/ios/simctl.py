@@ -11,6 +11,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..core import restore
+
 
 class SimctlError(Exception):
     pass
@@ -196,3 +198,99 @@ def languages(udid: str) -> list[str]:
                                                                               "AppleLanguages"), flags=re.M)
     except SimctlError:
         return []
+
+
+# What `simctl privacy` can change. Camera and notifications aren't among them: the system asks for those,
+# so a fresh install (or `idt app reset --level clear-data`) is the way to see those prompts again.
+PRIVACY_SERVICES = ("all", "calendar", "contacts-limited", "contacts", "location", "location-always", "photos-add",
+                    "photos", "media-library", "microphone", "motion", "reminders", "siri")
+
+
+def privacy(udid: str, action: str, service: str, bundle_id: str) -> None:
+    """Grant, revoke or reset one privacy permission of an app on a simulator."""
+    run("simctl", "privacy", udid, action, service, bundle_id)
+
+
+def url_schemes(plist: dict) -> list[str]:
+    """Custom URL schemes from Info.plist (CFBundleURLTypes): the app opens `scheme:...` links."""
+    return [f"{scheme}:" for kind in plist.get("CFBundleURLTypes", []) for scheme in kind.get("CFBundleURLSchemes", [])]
+
+
+def associated_domains(app: Path) -> list[str]:
+    """Universal Link domains from the app's signed entitlements (`codesign`, macOS only); [] when unknown."""
+    codesign = shutil.which("codesign")
+    if not codesign:
+        return []
+    proc = subprocess.run([codesign, "-d", "--entitlements", ":-", str(app)], capture_output=True)
+    start = proc.stdout.find(b"<?xml")
+    if proc.returncode != 0 or start < 0:
+        return []
+    entitlements = plistlib.loads(proc.stdout[start:])
+    return [d.removeprefix("applinks:") for d in entitlements.get("com.apple.developer.associated-domains", [])
+            if d.startswith("applinks:")]
+
+
+def links(app: Path) -> list[str]:
+    return [*url_schemes(info_plist(app)), *(f"https://{d}/... (Universal Link)" for d in associated_domains(app))]
+
+
+def open_url(udid: str, url: str) -> None:
+    run("simctl", "openurl", udid, url)
+
+
+CONTENT_SIZES = ("extra-small", "small", "medium", "large", "extra-large", "extra-extra-large",
+                 "extra-extra-extra-large", "accessibility-medium", "accessibility-large",
+                 "accessibility-extra-large", "accessibility-extra-extra-large",
+                 "accessibility-extra-extra-extra-large")
+
+
+def ui_get(udid: str, setting: str) -> str:
+    """`appearance` (light/dark) or `content_size` (text size) of a simulator."""
+    return run("simctl", "ui", udid, setting).decode().strip()
+
+
+def ui_set(udid: str, setting: str, value: str) -> None:
+    run("simctl", "ui", udid, setting, value)
+
+
+def ui_restore(udid: str) -> dict[str, str | None]:
+    """Put back appearance and text size changed by `idt env`; returns what was restored."""
+    saved = restore.pending(udid)
+    for setting, original in saved.items():
+        if original:
+            ui_set(udid, setting, original)
+    restore.forget(udid)
+    return saved
+
+
+def add_media(udid: str, file: Path) -> None:
+    run("simctl", "addmedia", udid, str(file), timeout=120)
+
+
+def clipboard_get(udid: str) -> str:
+    return run("simctl", "pbpaste", udid).decode("utf-8", errors="replace")
+
+
+def clipboard_set(udid: str, text: str) -> None:
+    run("simctl", "pbcopy", udid, input_=text.encode("utf-8"))
+
+
+def set_location(udid: str, latitude: float, longitude: float) -> None:
+    run("simctl", "location", udid, "set", f"{latitude},{longitude}")
+
+
+def clear_location(udid: str) -> None:
+    run("simctl", "location", udid, "clear")
+
+
+# Face ID ("pearl") and Touch ID ("fingerTouch") simulator events; both are sent, the device has one of them.
+_BIO = {"match": ("pearl.match", "fingerTouch.match"), "fail": ("pearl.nomatch", "fingerTouch.nomatch")}
+
+
+def biometrics(udid: str, action: str) -> None:
+    if action == "enroll":
+        spawn(udid, "notifyutil", "-s", "com.apple.BiometricKit.enrollmentChanged", "1")
+        spawn(udid, "notifyutil", "-p", "com.apple.BiometricKit.enrollmentChanged")
+        return
+    for event in _BIO[action]:
+        spawn(udid, "notifyutil", "-p", f"com.apple.BiometricKit_Sim.{event}")

@@ -42,7 +42,7 @@ End with a one-paragraph session plan (charter, mode, device, build, start state
 4. Hooks: run `adt hook setup --package PKG` when the profile defines it.
 5. Start the session: `adt session start --package PKG --mode MODE --charter "..." [--ticket KEY] --record --logcat`.
    Without `--dir` the run folder is `<reports dir from config.yaml>/<YYYY-MM-DD>-<app>-<mode>[-<ticket>]`, a new one per session; it prints the folder.
-   It also fills the title and the tester from the profile and config. Then fill `session.json` with ticket details, time box and app install source (see [report-standard.md](../mobile-tester-shared/report-standard.md)).
+   It also fills the title and the tester from the profile and config. Then set ticket details, time box and app install source with `adt report set RUN ...` (session.json) (see [report-standard.md](../mobile-tester-shared/report-standard.md)).
 6. Ask whether to turn on "Show taps" for this recording (always ask; on a phone pass the approval to `adt touches on --approval`).
 7. Performance baseline (unless the user turned it off): `adt perf startup PKG` (three cold starts, each after a force-stop), then `adt perf frames PKG --reset`.
 8. Bring the app to the start state (below). This also logs in when the profile's login needs it.
@@ -89,7 +89,7 @@ Problems outside the charter (another screen, an unrelated feature):
   Note what you saw and where; don't spend session time reproducing them unless they block the charter.
 
 While testing:
-- Write each finding into `findings.json` as soon as it's verified, not at the end. Fields and severity scale: [report-standard.md](../mobile-tester-shared/report-standard.md).
+- Write each finding with `adt finding add RUN ...` as soon as it's verified, not at the end, and change it with `finding update` / `finding retract`; never edit `findings.json` or `session.json` by hand. Fields and severity scale: [report-standard.md](../mobile-tester-shared/report-standard.md).
 - Before writing a finding, check the raw source that proves it: `adt inspect --index N` for an element (never the whole `latest.xml`), the relevant logcat lines (search them, don't read the file whole), the screenshot. If a finding turns out wrong, set it to Retracted with the reason; never delete it.
 - Save evidence with `adt observe --name <id>-<what>` and note the action log time for video clips.
 - A finding that matches an open known issue (same behaviour in the same area): set `"known_issue": "K-n"` and keep it short; don't re-investigate. It shows as "seen again".

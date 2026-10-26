@@ -10,6 +10,8 @@ import argparse
 import json
 import os
 import random
+import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -18,7 +20,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ..core import clip, commands, project, screen, session, state, ui
+from ..core import clip, commands, project, restore, screen, session, state, ui
 from ..core.commands import (
     EXIT_BLOCKED,
     EXIT_DECISION,
@@ -30,7 +32,7 @@ from ..core.commands import (
     NeedsDecision,
     NotFound,
 )
-from . import apkinfo, applog, apps, capture, device, entry_script, hierarchy, keyboard, perf
+from . import apkinfo, applog, apps, appstate, capture, device, entry_script, env, extras, hierarchy, keyboard, perf
 from .adb import Adb, AdbError, DeviceError, find_adb, list_devices, run_adb
 from .human import Driver, Outcome
 
@@ -363,10 +365,11 @@ def cmd_app(args, adb: Adb) -> int:
             if path.suffix.lower() in (".xapk", ".apks"):
                 with tempfile.TemporaryDirectory() as tmp:
                     parts = apkinfo.extract_bundle(path, Path(tmp))
-                    out = adb.run("install-multiple", "-r", "-g", *map(str, parts), timeout=600)
+                    grant = ["-g"] if args.grant_all else []
+                    out = adb.run("install-multiple", "-r", *grant, *map(str, parts), timeout=600)
                     print(out.decode(errors="replace").strip() + f" ({len(parts)} split APKs)")
             else:
-                print(device.app_install(adb, path))
+                print(device.app_install(adb, path, grant_all=args.grant_all))
             session.log_action(adb.serial, {"action": "app-install", "mode": "setup", "file": path.name})
         case "list":
             print("\n".join(p for p in device.app_list(adb, not args.all) if args.filter in p))
@@ -377,6 +380,11 @@ def cmd_app(args, adb: Adb) -> int:
             print(f"{package} {activity}")
         case "find":
             return _app_find(args, adb)
+        case "links":
+            links = apkinfo.deep_links(apps.manifest(adb, args.package))
+            print("\n".join(links) if links else f"{args.package} declares no deep links")
+        case "kill-background":
+            return _app_kill_background(args, adb)
     return EXIT_OK
 
 
@@ -392,6 +400,84 @@ def _app_reset(args, adb: Adb) -> int:
         print(f"note: a system permission dialog is on top ({foreground}); answering it is part of the setup")
     if not settled:
         print("note: the screen is still changing (splash, animation or video); observe before acting")
+    return EXIT_OK
+
+
+def _app_kill_background(args, adb: Adb) -> int:
+    """Android kills background apps to free memory; coming back must restore the screen, not crash or reset."""
+    before = device.last_observation(adb.serial)
+    driver = _driver(adb, args)
+    driver.home()
+    time.sleep(args.wait)  # the app has stopped and saved its state by now
+    killed_pids, alive = appstate.kill_in_background(adb, args.package)
+    session.log_action(adb.serial, {"action": "app-kill-background", "mode": "setup", "package": args.package,
+                                    "pids": killed_pids, "killed": not alive})
+    if alive:
+        print(f"not killed: {args.package} is still running (pid {alive}). Android keeps it alive, e.g. for a "
+              "foreground service, so this can't test a low-memory kill. The app is in the background.")
+        return EXIT_DECISION
+    print(f"killed {args.package} in the background (pid {', '.join(map(str, killed_pids))}); returning to it")
+    device.app_launch(adb, args.package)  # the launcher resumes the task; Android rebuilds its screen from saved state
+    screen.wait_stable(lambda: adb.exec_out("screencap", "-p", timeout=20), timeout=8)
+    if crash_lines := capture.new_crashes(adb):
+        print(f"CRASH after returning: {capture.crash_summary(crash_lines)}. Capture evidence now.")
+    obs = device.observe(adb, save_dir=_session_shots(adb))
+    if before and before.get("fingerprint") not in (None, "-"):
+        same = before["fingerprint"] == obs.fingerprint
+        print("back on the same screen as before the kill" if same else
+              "a different screen than before the kill: check whether the app should have restored it")
+    _print_observation(obs, as_json=False, previous=commands.previous_elements(before, obs.fingerprint))
+    return EXIT_OK
+
+
+def cmd_open(args, adb: Adb) -> int:
+    """Open a link the way a notification, a browser or another app does, and show where it landed."""
+    if args.cold:
+        if not args.package:
+            print("error: --cold needs --package, the app to stop first")
+            return EXIT_USAGE
+        device.app_stop(adb, args.package)
+    before = device.last_observation(adb.serial)
+    command = ["am", "start", "-W", "-a", "android.intent.action.VIEW", "-d", shlex.quote(args.uri)]
+    if args.package:
+        command += ["-p", args.package]
+    out = adb.shell(*command, timeout=60, check=False)
+    session.log_action(adb.serial, {"action": "open-link", "mode": "intent", "uri": args.uri,
+                                    "package": args.package, "cold": args.cold})
+    if "Error" in out or "unable to resolve" in out.casefold():
+        print(f"no app opened {args.uri}: {out.strip().splitlines()[-1] if out.strip() else 'no answer'}")
+        return EXIT_NOT_FOUND
+    facts = dict(re.findall(r"^(Status|LaunchState|Activity|TotalTime): (.+)$", out, re.M))
+    print(f"opened {args.uri}: " + ", ".join(f"{k} {v.strip()}" for k, v in facts.items()))
+    screen.wait_stable(lambda: adb.exec_out("screencap", "-p", timeout=20), timeout=8)
+    if crash_lines := capture.new_crashes(adb):
+        print(f"CRASH after opening the link: {capture.crash_summary(crash_lines)}. Capture evidence now.")
+    obs = device.observe(adb, save_dir=_session_shots(adb))
+    _print_observation(obs, as_json=False, previous=commands.previous_elements(before, obs.fingerprint))
+    print("next: press back and check where it goes (an empty back stack should leave the app, not show a blank "
+          "or wrong screen)")
+    return EXIT_OK
+
+
+def cmd_permissions(args, adb: Adb) -> int:
+    match args.perm_cmd:
+        case "list":
+            state = appstate.runtime_permissions(adb, args.package)
+            if not state:
+                print(f"{args.package} asks for no runtime permissions")
+            for name, granted in sorted(state.items()):
+                print(f"{'granted' if granted else 'denied ':8} {name}")
+            return EXIT_OK
+        case "reset":
+            names = appstate.reset(adb, args.package)
+            print(f"reset {len(names)} runtime permission(s) of {args.package}: the app asks again")
+        case _:
+            names = appstate.expand(args.permissions)
+            (appstate.grant if args.perm_cmd == "grant" else appstate.revoke)(adb, args.package, names)
+            print(f"{args.perm_cmd}: {', '.join(names)}"
+                  + ("; Android killed the app's process if it was running" if args.perm_cmd == "revoke" else ""))
+    session.log_action(adb.serial, {"action": f"permissions-{args.perm_cmd}", "mode": "setup",
+                                    "package": args.package, "permissions": getattr(args, "permissions", None)})
     return EXIT_OK
 
 
@@ -525,11 +611,92 @@ def cmd_session(args, adb: Adb) -> int:
                 print(f"logcat: {capture.logcat_stop(adb)}")
             run = session.end(adb.serial)
             print(f"session ended: {run}")
+            if restored := env.restore_all(adb):
+                print("restored device settings: " + ", ".join(restored))
             if run and not args.no_report:
                 commands.report_after_session(run, "adt")
         case "status":
             active = session.active(adb.serial)
             print(json.dumps(active, indent=1) if active else "no active session")
+    return EXIT_OK
+
+
+def _physical(adb: Adb) -> bool:
+    return not (adb.serial.startswith("emulator-") or adb.getprop("ro.kernel.qemu") == "1")
+
+
+def _system_change_allowed(adb: Adb, what: str, approval: str | None) -> None:
+    if _physical(adb) and not approval:
+        raise Blocked(f"BLOCKED: {what} changes a system setting on a physical device. Ask the user; if they "
+                      "approve, rerun with --approval \"<their approval>\". `session end` puts it back.")
+    if approval:
+        _approval_log(adb, {"action": what, "approval": approval})
+
+
+def cmd_env(args, adb: Adb) -> int:
+    if args.reset:
+        restored = env.restore_all(adb, [k for k in restore.pending(adb.serial) if k != "connectivity/airplane"])
+        print("restored: " + (", ".join(restored) or "nothing was changed"))
+        return EXIT_OK
+    wanted = {name: value for name, value in (("dark", args.dark), ("font_scale", args.font_scale),
+                                               ("orientation", args.orientation), ("rtl", args.rtl)) if value}
+    if not wanted:
+        print("nothing to change: pass --dark, --font-scale, --orientation or --rtl (or --reset)")
+        return EXIT_USAGE
+    _system_change_allowed(adb, "env " + " ".join(f"{k}={v}" for k, v in wanted.items()), args.approval)
+    for name, value in wanted.items():
+        env.change(adb, name, value)
+    session.log_action(adb.serial, {"action": "env", "mode": "setup", **wanted})
+    print("changed: " + ", ".join(f"{k} {v}" for k, v in wanted.items())
+          + ". Restart the app to see it everywhere; `env --reset` or `session end` puts it back."
+          + (" RTL also needs the app restarted." if "rtl" in wanted else ""))
+    return EXIT_OK
+
+
+def cmd_net(args, adb: Adb) -> int:
+    if args.state == "online":
+        restored = env.restore_all(adb, ["connectivity/airplane"])
+        print("back online" if restored else "the network wasn't changed by adt")
+        return EXIT_OK
+    if env.over_wifi(adb.serial):
+        raise Blocked("BLOCKED: adb is connected over Wi-Fi; going offline would cut the connection to the device. "
+                      "Connect it by USB first.")
+    _system_change_allowed(adb, "net offline (airplane mode)", args.approval)
+    env.change(adb, "network", "offline")
+    session.log_action(adb.serial, {"action": "net-offline", "mode": "setup"})
+    print("offline (airplane mode on). `net online` or `session end` turns it back.")
+    return EXIT_OK
+
+
+def cmd_notifications(args, adb: Adb) -> int:
+    found = extras.notifications(adb, args.package)
+    if not found:
+        print("no active notifications" + (f" from {args.package}" if args.package else ""))
+    for n in found:
+        actions = f"  [{' | '.join(n['actions'])}]" if n["actions"] else ""
+        print(f"{n['package']}: {n['title']!r} {n['text']!r}{actions}")
+    return EXIT_OK
+
+
+def cmd_media(args, adb: Adb) -> int:
+    remote = extras.push_media(adb, Path(args.file))
+    session.log_action(adb.serial, {"action": "media-push", "mode": "setup", "file": Path(args.file).name})
+    print(f"pushed to {remote}; it shows in the gallery and photo pickers")
+    return EXIT_OK
+
+
+def cmd_location(args, adb: Adb) -> int:
+    extras.set_location(adb, args.latitude, args.longitude)
+    session.log_action(adb.serial, {"action": "location", "mode": "setup", "lat": args.latitude,
+                                    "lon": args.longitude})
+    print(f"GPS position set to {args.latitude}, {args.longitude}")
+    return EXIT_OK
+
+
+def cmd_bio(args, adb: Adb) -> int:
+    extras.fingerprint(adb, args.result == "match")
+    session.log_action(adb.serial, {"action": f"bio-{args.result}", "mode": "setup"})
+    print(f"fingerprint: {'enrolled finger' if args.result == 'match' else 'unknown finger'} touched the sensor")
     return EXIT_OK
 
 
@@ -743,6 +910,33 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--timeout", type=float, default=20, help="seconds to wait for the app to come up")
     ap = app.add_parser("install")
     ap.add_argument("apk")
+    ap.add_argument("--grant-all", action="store_true",
+                    help="grant every runtime permission at install (skips the app's permission prompts; "
+                         "setup only)")
+    ap = app.add_parser("kill-background", help="home, then kill the app's process like Android does under memory "
+                                                "pressure, return to it and compare the screen")
+    ap.add_argument("package")
+    ap.add_argument("--wait", type=float, default=2, help="seconds in the background before the kill (default 2)")
+
+    ap = app.add_parser("links", help="deep links the app declares (from its manifest on the device)")
+    ap.add_argument("package")
+
+    p = sub.add_parser("open", help="open a link (deep link, App Link, OAuth or payment callback) and show the screen")
+    p.add_argument("uri", help="e.g. myapp://checkout/return?status=ok or https://example.com/item/42")
+    p.add_argument("--package", help="the app that should handle it (otherwise Android picks or asks)")
+    p.add_argument("--cold", action="store_true", help="stop the app first, to open the link from a cold start")
+
+    p = sub.add_parser("permissions", help="the app's runtime permissions: list, grant, revoke, reset")
+    perm = commands.subparsers(p, common, dest="perm_cmd", required=True)
+    pp = perm.add_parser("list")
+    pp.add_argument("package")
+    for name in ("grant", "revoke"):
+        pp = perm.add_parser(name)
+        pp.add_argument("package")
+        pp.add_argument("permissions", nargs="+", help="e.g. camera, location, notifications, "
+                                                      "android.permission.READ_CONTACTS")
+    pp = perm.add_parser("reset", help="revoke all and clear 'don't ask again': the app asks again")
+    pp.add_argument("package")
     ap = app.add_parser("list")
     ap.add_argument("filter", nargs="?", default="")
     ap.add_argument("--all", action="store_true", help="include system packages")
@@ -795,6 +989,29 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--no-report", action="store_true", help="don't build the report now")
     ses.add_parser("status")
 
+    p = sub.add_parser("env", help="config stress: dark mode, font scale, orientation, RTL (restored at session end)")
+    p.add_argument("--dark", choices=["on", "off"])
+    p.add_argument("--font-scale", dest="font_scale", choices=["0.85", "1.0", "1.15", "1.3", "1.5", "2.0"])
+    p.add_argument("--orientation", choices=["portrait", "landscape"])
+    p.add_argument("--rtl", choices=["on", "off"], help="force right-to-left layout (restart the app afterwards)")
+    p.add_argument("--reset", action="store_true", help="put back everything env changed")
+    p.add_argument("--approval", metavar="APPROVAL", help="user's approval, required on a physical device")
+    p = sub.add_parser("net", help="go offline (airplane mode) and back online; restored at session end")
+    p.add_argument("state", choices=["offline", "online"])
+    p.add_argument("--approval", metavar="APPROVAL", help="user's approval, required on a physical device")
+
+    p = sub.add_parser("notifications", help="active notifications: app, title, text, action buttons")
+    p.add_argument("--package", help="only this app's")
+    p = sub.add_parser("media", help="put photos or videos in the gallery for upload and picker tests")
+    med = commands.subparsers(p, common, dest="media_cmd", required=True)
+    mp = med.add_parser("push")
+    mp.add_argument("file")
+    p = sub.add_parser("location", help="set the GPS position (emulators)")
+    p.add_argument("latitude", type=float)
+    p.add_argument("longitude", type=float)
+    p = sub.add_parser("bio", help="touch the fingerprint sensor with the enrolled or an unknown finger (emulators)")
+    p.add_argument("result", choices=["match", "fail"])
+
     p = sub.add_parser("touches", help="'Show taps' markers for recordings (system setting: needs approval on phones)")
     p.add_argument("state", choices=["on", "off"])
     p.add_argument("--approval", metavar="APPROVAL", help="user's approval, required to turn it on on a phone")
@@ -837,11 +1054,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 _NO_DEVICE = {"doctor": cmd_doctor, "devices": cmd_devices, "report": commands.cmd_report, "apk": cmd_apk,
-              "issues": commands.cmd_issues}
+              "issues": commands.cmd_issues, "finding": commands.cmd_finding}
 _WITH_DEVICE = {
-    "info": cmd_info, "observe": cmd_observe, "inspect": cmd_inspect, "tap": cmd_tap, "type": cmd_type, "key": cmd_key,
-    "swipe": cmd_swipe, "scroll": cmd_scroll, "wait": cmd_wait, "app": cmd_app, "logcat": cmd_logcat,
-    "record": cmd_record, "clip": cmd_clip, "session": cmd_session, "touches": cmd_touches,
+    "info": cmd_info, "observe": cmd_observe, "inspect": cmd_inspect, "tap": cmd_tap, "type": cmd_type,
+    "key": cmd_key, "swipe": cmd_swipe, "scroll": cmd_scroll, "wait": cmd_wait, "app": cmd_app,
+    "permissions": cmd_permissions, "open": cmd_open, "logcat": cmd_logcat, "record": cmd_record, "clip": cmd_clip,
+    "session": cmd_session, "touches": cmd_touches, "env": cmd_env, "net": cmd_net,
+    "notifications": cmd_notifications, "media": cmd_media, "location": cmd_location, "bio": cmd_bio,
     "hook": cmd_script, "check": cmd_script, "perf": cmd_perf, "_record-worker": cmd_record_worker,
 }
 

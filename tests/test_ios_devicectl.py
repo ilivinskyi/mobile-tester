@@ -160,7 +160,9 @@ def test_copied_crash_reports_keep_the_crash_time(tmp_path, monkeypatch):
     assert crash.find("Habits", "com.github.aint.Habits", since=1792825922, directory=local) == []
 
 
-def test_recording_command_and_start_marker_per_kind():
+def test_recording_command_and_start_marker_per_kind(monkeypatch):
+    # The command line is what's tested, not the machine: it must pass where Xcode isn't installed too.
+    monkeypatch.setattr(capture, "xcrun", lambda: "/usr/bin/xcrun")
     out = Path("/tmp/session.mp4")
     assert capture._record_command("U", out, physical=True)[1:6] == ["devicectl", "device", "capture",
                                                                        "screen-record", "--device"]

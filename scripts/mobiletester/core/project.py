@@ -12,6 +12,7 @@ from pathlib import Path
 
 import yaml
 
+from . import devices
 from .state import PROJECT_DIR
 
 CONFIG = Path(PROJECT_DIR) / "config.yaml"
@@ -42,9 +43,12 @@ def tester(start: Path | None = None) -> str | None:
 
 
 def device_entry(device_id: str, start: Path | None = None) -> dict | None:
-    """The device inventory's entry for this serial or UDID (kind, personal, name), if onboarding recorded it."""
+    """The device's entry (name, kind, personal): the user's device list first, then the project's older inventory."""
+    if entry := devices.get(device_id):
+        return entry
     config, _ = load(start)
-    return next((d for d in config.get("devices") or [] if str(d.get("id", "")) == device_id), None)
+    return next((d for d in config.get("devices") or [] if str(d.get("id", d.get("serial", ""))) == device_id),
+                None)
 
 
 def app_name(root: Path, package: str) -> str:

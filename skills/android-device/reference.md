@@ -16,7 +16,8 @@ Global options (before or after the command):
 | Command | Purpose |
 |---|---|
 | `doctor` | adb location and version, other tools, device states |
-| `devices [--json]` | serial, state, physical/emulator, model |
+| `devices [--json]` | serial, state, physical/emulator, model, and how your device list knows it (test, personal, not saved yet) |
+| `devices --save ID --name NAME --test\|--personal` / `devices --forget ID` | your device list (`~/.mobile-tester/devices.yaml`, every project): a test device's system settings change without approval (still restored at `session end`); a personal or unsaved physical device asks every time |
 | `info [--json]` | model, Android version, screen, density, navigation mode, keyboard, locale, show taps, accessibility services |
 
 ## Observing
@@ -91,7 +92,7 @@ Taps on an element go to a random point near its center that no other control co
 | `app kill-background PKG [--wait 2]` | home, then kill the process like Android does under memory pressure, return through the launcher, report a crash and whether it's the same screen as before (observe first). Exit 6 when Android keeps the process alive (foreground service) |
 | `open URI [--package PKG] [--cold] [--no-observe]` | open a deep link, App Link, OAuth or payment callback as another app would; prints launch state (COLD/WARM/HOT), crash, and the screen (not with `--no-observe`). `--cold` stops the app first. Then press back: the back stack must make sense |
 | `permissions list\|grant\|revoke\|reset PKG [NAMES...]` | runtime permissions: names like `camera`, `location`, `notifications`, `photos` or full `android.permission.*`. Revoking kills the app's process (a classic crash test: revoke while it's in the background, then return). `reset` revokes all and clears "don't ask again" |
-| `env [--dark on\|off] [--font-scale 2.0] [--orientation landscape] [--rtl on] [--reset] [--approval "..."]` | config stress; originals are recorded and restored by `env --reset` or `session end`. A system setting: needs `--approval` on a physical device |
+| `env [--dark on\|off] [--font-scale 2.0] [--orientation landscape] [--rtl on] [--reset] [--approval "..."]` | config stress; originals are recorded and restored by `env --reset` or `session end`. A system setting: needs `--approval` on a personal or unsaved physical device, not on a saved test device |
 | `net offline\|online [--approval "..."]` | airplane mode on/off, restored by `session end`; refused when adb runs over Wi-Fi (it would cut the connection) |
 | `notifications [--package PKG]` | active notifications: app, title, text, action buttons |
 | `media push FILE` | a photo or video into the gallery (for uploads and pickers) |

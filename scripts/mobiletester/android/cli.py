@@ -20,7 +20,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ..core import clip, commands, project, restore, screen, session, state, ui
+from ..core import clip, commands, devices, project, restore, screen, session, state, ui
 from ..core.commands import (
     EXIT_BLOCKED,
     EXIT_DECISION,
@@ -218,13 +218,16 @@ def cmd_doctor(args) -> int:
 
 
 def cmd_devices(args) -> int:
-    devices = list_devices(find_adb())
+    connected = list_devices(find_adb())
+    kinds = {d.serial: "emulator" if d.is_emulator else "physical" for d in connected}
+    if (code := commands.change_device_list(args, "Android", kinds)) is not None:
+        return code
     if args.json:
-        print(json.dumps([d.__dict__ for d in devices]))
-    for d in devices if not args.json else []:
-        kind = "emulator" if d.is_emulator else "physical"
-        print(f"{d.serial}\t{d.state}\t{kind}\t{d.model}")
-    return EXIT_OK if devices else EXIT_DEVICE
+        print(json.dumps([{**d.__dict__, "saved": devices.get(d.serial)} for d in connected]))
+    for d in connected if not args.json else []:
+        saved = devices.describe(devices.get(d.serial), not d.is_emulator)
+        print(f"{d.serial}\t{d.state}\t{kinds[d.serial]}\t{d.model}\t{saved}")
+    return EXIT_OK if connected else EXIT_DEVICE
 
 
 def cmd_info(args, adb: Adb) -> int:
@@ -589,6 +592,10 @@ def cmd_session(args, adb: Adb) -> int:
     match args.session_cmd:
         case "start":
             props = device.device_props(adb)
+            props["personal"] = _personal(adb)
+            if _physical(adb) and not project.device_entry(adb.serial):
+                print("note: this phone is not in your device list, so it counts as personal: system changes ask "
+                      f"first. A test device? `adt devices --save {adb.serial} --name NAME --test`")
             meta = {
                 "mode": args.mode, "charter": args.charter, "ticket": args.ticket, "package": args.package,
                 "platform": "Android", "device": props,
@@ -641,10 +648,19 @@ def _physical(adb: Adb) -> bool:
     return not (adb.serial.startswith("emulator-") or adb.getprop("ro.kernel.qemu") == "1")
 
 
+def _personal(adb: Adb) -> bool:
+    return devices.personal(project.device_entry(adb.serial), _physical(adb))
+
+
 def _system_change_allowed(adb: Adb, what: str, approval: str | None) -> None:
-    if _physical(adb) and not approval:
-        raise Blocked(f"BLOCKED: {what} changes a system setting on a physical device. Ask the user; if they "
-                      "approve, rerun with --approval \"<their approval>\". `session end` puts it back.")
+    """Test devices (in the user's device list) need no approval; personal or unknown phones do."""
+    if _personal(adb) and not approval:
+        saved = project.device_entry(adb.serial)
+        raise Blocked(f"BLOCKED: {what} changes a system setting on {'a personal' if saved else 'an unsaved'} "
+                      "physical device. Ask the user; if they approve, rerun with --approval \"<their approval>\". "
+                      "`session end` puts it back."
+                      + ("" if saved else f" If it's a test device, save it once: `adt devices --save {adb.serial} "
+                                          "--name NAME --test`, and it won't ask again."))
     if approval:
         _approval_log(adb, {"action": what, "approval": approval})
 
@@ -718,11 +734,9 @@ def cmd_bio(args, adb: Adb) -> int:
 
 def cmd_touches(args, adb: Adb) -> int:
     """'Show taps' (Developer options) draws touch markers into recordings. It's a system setting."""
-    physical = not (adb.serial.startswith("emulator-") or adb.getprop("ro.kernel.qemu") == "1")
-    if args.state == "on" and physical and not args.approval:
-        raise Blocked("BLOCKED: 'Show taps' changes a system setting on a physical device. Ask the user; "
-                      "if they approve, rerun with --approval \"<their approval>\" and turn it off afterwards.")
-    if args.approval:
+    if args.state == "on":
+        _system_change_allowed(adb, "Show taps", args.approval)
+    elif args.approval:
         _approval_log(adb, {"action": f"show_touches {args.state}", "approval": args.approval})
     adb.shell("settings", "put", "system", "show_touches", "1" if args.state == "on" else "0")
     print(f"show taps: {args.state}")
@@ -850,8 +864,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub = commands.subparsers(parser, common, dest="cmd", required=True)
 
     sub.add_parser("doctor", help="check adb, tools and connected devices")
-    p = sub.add_parser("devices", help="list devices")
+    p = sub.add_parser("devices", help="list devices, with how your device list knows them; save or forget one")
     p.add_argument("--json", action="store_true")
+    commands.add_device_list_args(p)
     p = sub.add_parser("info", help="device facts for reports (navigation mode, keyboard, locale, ...)")
     p.add_argument("--json", action="store_true")
 

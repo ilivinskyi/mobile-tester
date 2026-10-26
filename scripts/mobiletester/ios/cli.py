@@ -17,7 +17,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ..core import clip, commands, project, restore, screen, session, state, ui
+from ..core import clip, commands, devices, project, restore, screen, session, state, ui
 from ..core.commands import (
     EXIT_BLOCKED,
     EXIT_DECISION,
@@ -177,11 +177,8 @@ def _guard(dev: Device, el: ui.Element | None, allow_reason: str | None, action:
 
 
 def _personal(dev: Device) -> bool:
-    """A real device counts as personal unless the inventory says it isn't; simulators never are."""
-    if not dev.physical:
-        return False
-    entry = project.device_entry(dev.udid)
-    return bool(entry.get("personal", True)) if entry else True
+    """A real device counts as personal unless your device list says it isn't; simulators never are."""
+    return devices.personal(project.device_entry(dev.udid), dev.physical)
 
 
 def _guard_personal(dev: Device, args, action: str) -> None:
@@ -259,12 +256,15 @@ def _doctor_device(phone: devicectl.PhysicalDevice, team: str | None) -> None:
 
 def cmd_devices(args) -> int:
     sims, phones = simctl.list_devices(), devicectl.list_devices()
+    kinds = {**{s.udid: "simulator" for s in sims}, **{p.udid: "physical" for p in phones}}
+    if (code := commands.change_device_list(args, "iOS", kinds)) is not None:
+        return code
     if args.json:
         print(json.dumps([{**s.__dict__, "kind": s.kind} for s in [*phones, *sims]]))
         return EXIT_OK
     for p in phones:
         print(f"{p.udid}\t{p.state}\tphysical\t{p.model} \"{p.name}\"\t{p.runtime}\t"
-              f"{'USB' if p.transport == 'wired' else 'Wi-Fi'}")
+              f"{'USB' if p.transport == 'wired' else 'Wi-Fi'}\t{devices.describe(devices.get(p.udid), True)}")
     for s in sorted(sims, key=lambda s: (not s.booted, s.runtime, s.name)):
         print(f"{s.udid}\t{s.state}\tsimulator\t{s.name}\t{s.runtime}")
     return EXIT_OK if sims or phones else EXIT_DEVICE
@@ -755,8 +755,9 @@ def cmd_session(args, dev: Device) -> int:
                     print(f"runner{signed.replace(',', ':', 1)}")
                 props["personal"] = _personal(dev)
                 if not project.device_entry(dev.udid):
-                    print("note: this device is not in the device inventory (config.yaml), so it counts as personal: "
-                          "no data clearing, installs or system settings without asking")
+                    print("note: this device is not in your device list, so it counts as personal: no data "
+                          f"clearing, installs or system settings without asking. A test device? `idt devices --save "
+                          f"{dev.udid} --name NAME --test`")
             meta = {
                 "mode": args.mode, "charter": args.charter, "ticket": args.ticket, "package": args.package,
                 "platform": "iOS", "device": props,
@@ -871,8 +872,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub = commands.subparsers(parser, common, dest="cmd", required=True)
 
     sub.add_parser("doctor", help="check Xcode, the runner, booted simulators and connected devices")
-    p = sub.add_parser("devices", help="list real devices and simulators")
+    p = sub.add_parser("devices", help="list real devices and simulators; save or forget one in your device list")
     p.add_argument("--json", action="store_true")
+    commands.add_device_list_args(p)
     p = sub.add_parser("runner", help="the XCUITest runner that drives the simulator or device (started on demand)")
     run = commands.subparsers(p, common, dest="runner_cmd", required=True)
     rp = run.add_parser("build", help="build the runner (for a real device: signed by the user's team)")

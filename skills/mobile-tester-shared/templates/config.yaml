@@ -18,14 +18,8 @@ jira:
 
 severity_notes: ""          # team additions to the standard severity scale, if any
 
-devices:
-  - id: ""                  # Android serial (`adt devices`) or iOS simulator or device UDID (`idt devices`)
-    platform: Android       # Android | iOS
-    name: ""                # e.g. "Test phone 1", "iPhone 17 simulator"
-    kind: physical          # physical | emulator | simulator
-    personal: true          # stricter guardrails: no system settings, data clearing or installs without asking
-    navigation: gesture     # from `adt info` / `idt info`
-    keyboard: gboard
+# Devices are saved per user, for every project, with `adt devices --save` / `idt devices --save`
+# (~/.mobile-tester/devices.yaml). A `devices:` list here still works for older projects.
 
 autopilot:
   enabled: false

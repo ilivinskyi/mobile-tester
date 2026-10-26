@@ -16,7 +16,8 @@ Global options (before or after the command):
 | Command | Purpose |
 |---|---|
 | `doctor` | Xcode, ffmpeg, uv, whether the runner is built, booted simulators and their runner, paired devices with what each still needs (`to do:`), the signing team |
-| `devices [--json]` | UDID, state, kind, name, iOS version of every paired device (`ready`, `developer mode off`, `unavailable`, `not paired`; USB or Wi-Fi) and every available simulator |
+| `devices [--json]` | UDID, state, kind, name, iOS version of every paired device (`ready`, `developer mode off`, `unavailable`, `not paired`; USB or Wi-Fi; how your device list knows it) and every available simulator |
+| `devices --save ID --name NAME --test\|--personal` / `devices --forget ID` | your device list (`~/.mobile-tester/devices.yaml`, every project): a test device's system settings change without approval (still restored at `session end`); a personal or unsaved physical device asks every time |
 | `info [--json]` | model, iOS version, kind (`simulator` or `physical`), screen in points and scale, navigation, keyboard language, locale, languages; on a device also the connection (USB or Wi-Fi) |
 | `runner build [--team TEAMID]` / `start` / `stop` / `status` | the XCUITest runner: built once per Xcode version into `~/Library/Caches/mobile-tester`, started on demand by any UI command, one port per simulator or device. On a device it is built for that device and signed by the user's team (`--team`, remembered in `~/Library/Application Support/mobile-tester/ios-signing.json`, or `MT_IOS_TEAM`); without a team every device command exits 6 (`DECISION NEEDED`). `start` rebuilds a device runner whose signing expires within a day (removing only that runner's cached profile in Xcode, so a fresh one is fetched); `build` and `status` print the expiry |
 

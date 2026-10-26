@@ -17,13 +17,15 @@ Ask:
   Tell the user that drafts are written as Markdown and issues are only created with explicit approval each time.
 - Team-specific severity rules, if any, on top of the standard scale in [report-standard.md](report-standard.md).
 
-## 2. Device inventory
+## 2. Devices
 
-1. Run `dt devices`, and `dt -s DEVICE info` for each ready device.
-2. For each device ask: a short name, and whether it is a **personal** device.
+Devices are saved once per user, not per project, in `~/.mobile-tester/devices.yaml`: every project folder on this computer knows them.
+1. Run `dt devices`: each connected device shows how the list knows it (test device, personal device, or not saved yet).
+2. Ask only about physical devices that are not saved yet: a short name, and whether it is a **personal** device or a test device.
    Personal devices get stricter guardrails: no system-setting changes, no clearing app data, no installing builds without asking.
-   Simulators and emulators are never personal.
-3. Record the device id (Android serial, iOS simulator or device UDID), name, platform, kind (physical, emulator or simulator), personal, navigation and keyboard.
+   Test devices may change settings without asking (always restored at `session end`). Simulators and emulators are never personal.
+3. Save each answer: `dt devices --save <serial or UDID> --name "<name>" --test` (or `--personal`).
+   Run `dt -s DEVICE info` for the facts the report needs (navigation, keyboard); they don't go into the list.
    Android: if the keyboard isn't Gboard, warn that on-screen typing may need the fallback (see `keyboard_fallback` in autopilot).
 
 ## 3. App profiles

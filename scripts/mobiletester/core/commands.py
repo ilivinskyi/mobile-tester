@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from . import diff, findings, lifecycle, report, telemetry, ui
+from . import devices, diff, findings, lifecycle, report, telemetry, ui
 from .state import PROJECT_DIR
 
 EXIT_OK, EXIT_USAGE, EXIT_DEVICE, EXIT_NOT_FOUND, EXIT_BLOCKED, EXIT_DECISION = 0, 2, 3, 4, 5, 6
@@ -324,3 +324,29 @@ def add_inspect_parser(sub, tool: str, dump: str) -> None:
     target.add_argument("--index", type=int, help=f"element index from the last `{tool} observe`")
     target.add_argument("--text", help="best match by label")
     target.add_argument("--id", help="by resource id / accessibility identifier")
+
+
+def add_device_list_args(p: argparse.ArgumentParser) -> None:
+    """`devices --save ID --name NAME --test|--personal` and `devices --forget ID` on either CLI."""
+    p.add_argument("--save", metavar="ID", help="save this serial/UDID in your device list (all projects)")
+    p.add_argument("--name", help="a short name for --save, e.g. 'Pixel 7a'")
+    kind = p.add_mutually_exclusive_group()
+    kind.add_argument("--test", action="store_true", help="--save as a test device: system changes need no approval")
+    kind.add_argument("--personal", action="store_true", help="--save as a personal device: every system change asks")
+    p.add_argument("--forget", metavar="ID", help="remove a device from your device list")
+
+
+def change_device_list(args, platform: str, kinds: dict[str, str]) -> int | None:
+    """Handle --save / --forget; None when neither was given. `kinds`: connected id -> physical/emulator/simulator."""
+    if args.forget:
+        print(f"forgot {args.forget}" if devices.forget(args.forget) else f"{args.forget} wasn't in the device list")
+        return EXIT_OK
+    if not args.save:
+        return None
+    if not (args.name and (args.test or args.personal)):
+        print("error: --save needs --name and --test or --personal")
+        return EXIT_USAGE
+    entry = devices.save(args.save, args.name, platform, kinds.get(args.save, "physical"), personal=args.personal)
+    print(f"saved {entry['id']} as {entry['name']} ({'personal' if entry['personal'] else 'test'} device, "
+          f"{entry['kind']}) in {devices.path()}")
+    return EXIT_OK

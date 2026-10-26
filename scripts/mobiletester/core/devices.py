@@ -1,6 +1,8 @@
 """The user's device list: every phone, emulator and simulator they test on, saved once for all projects.
 
-Lives in ~/.mobile-tester/devices.yaml (MT_DEVICES overrides it), keyed by Android serial or iOS UDID.
+Lives in ~/.config/mobile-tester/devices.yaml (MT_DEVICES overrides it), keyed by Android serial or iOS UDID.
+Not in ~/.mobile-tester: a `.mobile-tester` folder marks a project, and one in the home folder would make every
+folder below it look like part of a project there.
 The tools read it to tell a test device (system settings may change, restored at session end) from a personal
 phone (every system change needs the user's yes). An unknown physical device counts as personal.
 """
@@ -17,11 +19,18 @@ _HEADER = ("# mobile-tester devices: used by every project on this computer. Key
 
 
 def path() -> Path:
-    return Path(os.environ.get("MT_DEVICES") or Path.home() / ".mobile-tester" / "devices.yaml")
+    return Path(os.environ.get("MT_DEVICES") or Path.home() / ".config" / "mobile-tester" / "devices.yaml")
+
+
+def _old_path() -> Path:
+    """Where 0.3 kept the list; read once and moved on the next save."""
+    return Path.home() / ".mobile-tester" / "devices.yaml"
 
 
 def load() -> list[dict]:
     file = path()
+    if not file.is_file() and not os.environ.get("MT_DEVICES") and _old_path().is_file():
+        file = _old_path()
     if not file.is_file():
         return []
     return (yaml.safe_load(file.read_text(encoding="utf-8")) or {}).get("devices") or []
@@ -53,6 +62,11 @@ def _write(entries: list[dict]) -> None:
     tmp.write_text(_HEADER + yaml.safe_dump({"devices": entries}, sort_keys=False, allow_unicode=True),
                    encoding="utf-8")
     os.replace(tmp, file)
+    old = _old_path()
+    if not os.environ.get("MT_DEVICES") and old.is_file():
+        old.unlink()
+        if not any(old.parent.iterdir()):
+            old.parent.rmdir()
 
 
 def personal(entry: dict | None, physical: bool) -> bool:

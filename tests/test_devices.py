@@ -69,3 +69,21 @@ def test_save_needs_name_and_kind(capsys):
     assert devices.get("X1") == {"id": "X1", "name": "Tablet", "platform": "Android", "kind": "physical",
                                  "personal": False}
     assert commands.change_device_list(Namespace(forget=None, save=None), "Android", {}) is None
+
+
+def test_list_lives_outside_any_project_marker(monkeypatch):
+    monkeypatch.delenv("MT_DEVICES")
+    # A `.mobile-tester` folder marks a project; the user's list must never create one in the home folder.
+    assert ".mobile-tester" not in devices.path().parts
+
+
+def test_old_location_is_read_and_moved_on_save(tmp_path, monkeypatch):
+    monkeypatch.delenv("MT_DEVICES")
+    monkeypatch.setattr(devices.Path, "home", lambda: tmp_path)
+    old = tmp_path / ".mobile-tester" / "devices.yaml"
+    old.parent.mkdir()
+    old.write_text("devices:\n- id: OLD1\n  name: Old phone\n  personal: false\n", encoding="utf-8")
+    assert devices.get("OLD1")["name"] == "Old phone"
+    devices.save("NEW1", "New phone", "Android", "physical", personal=True)
+    assert not (tmp_path / ".mobile-tester").exists()
+    assert devices.path() == tmp_path / ".config" / "mobile-tester" / "devices.yaml"

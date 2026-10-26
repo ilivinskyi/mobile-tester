@@ -18,7 +18,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ..core import clip, commands, project, screen, session, state
+from ..core import clip, commands, project, screen, session, state, ui
 from ..core.commands import (
     EXIT_BLOCKED,
     EXIT_DECISION,
@@ -36,7 +36,8 @@ from .human import Driver, Outcome
 
 # --- helpers ---------------------------------------------------------------------------------
 
-def _print_observation(obs: device.Observation, as_json: bool) -> None:
+def _print_observation(obs: device.Observation, as_json: bool, bounds: bool = False,
+                       previous: list[ui.Element] | None = None) -> None:
     if as_json:
         print(json.dumps(obs.to_dict(), ensure_ascii=False))
         return
@@ -51,9 +52,7 @@ def _print_observation(obs: device.Observation, as_json: bool) -> None:
     if risky:
         print(f"WARNING: {len(risky)} risky element(s) on screen: "
               + ", ".join(f"[{e.index}] {e.risk}" for e in risky))
-    print(f"elements ({len(s.elements)}):")
-    for el in s.elements:
-        print("  " * min(el.depth // 4, 3) + el.describe())
+    print("\n".join(ui.listing(s.elements, previous, bounds, depth_step=4)))
 
 
 def _driver(adb: Adb, args) -> Driver:
@@ -70,8 +69,10 @@ def _after(adb: Adb, args, outcome: Outcome | None = None) -> None:
         _report_outcome(outcome)
     if args.fast or outcome is None or outcome.changed is None:
         time.sleep(getattr(args, "settle", 0.5))
-    if getattr(args, "observe", False):
-        _print_observation(device.observe(adb, save_dir=_session_shots(adb)), as_json=False)
+    if commands.observe_after(args, outcome.changed if outcome else None, session.mode(adb.serial)):
+        before = device.last_observation(adb.serial)
+        obs = device.observe(adb, save_dir=_session_shots(adb))
+        _print_observation(obs, as_json=False, previous=commands.previous_elements(before, obs.fingerprint))
 
 
 def _session_shots(adb: Adb) -> Path | None:
@@ -223,9 +224,18 @@ def cmd_observe(args, adb: Adb) -> int:
         target.write_bytes(device.screenshot(adb))
         print(f"screenshot: {target}  (no hierarchy dump: accessibility layer untouched)")
         return EXIT_OK
+    before = None if args.full else device.last_observation(adb.serial)
     obs = device.observe(adb, save_dir=save_dir, name=args.name, with_image=not args.no_image,
                          marks=not args.no_marks)
-    _print_observation(obs, args.json)
+    _print_observation(obs, args.json, args.bounds, commands.previous_elements(before, obs.fingerprint))
+    return EXIT_OK
+
+
+def cmd_inspect(args, adb: Adb) -> int:
+    snap, _ = device.last_snapshot(adb.serial)
+    el = commands.inspect_target(snap, args)
+    xml = (state.device_dir(adb.serial) / "latest.xml").read_text(encoding="utf-8")
+    print("\n".join(ui.inspect_lines(el, *hierarchy.raw_node(xml, el))))
     return EXIT_OK
 
 
@@ -629,7 +639,9 @@ def _add_settle(p: argparse.ArgumentParser, observe: bool = True) -> None:
     p.add_argument("--settle", type=float, default=0.5,
                    help="seconds to wait after the action when the screen isn't checked (fast mode)")
     if observe:
-        p.add_argument("--observe", action="store_true", help="observe right after the action")
+        p.add_argument("--observe", action="store_true",
+                       help="always list the screen after the action (default: only when it changed)")
+        p.add_argument("--no-observe", action="store_true", help="don't list the screen after the action")
 
 
 def _global_flags(parser: argparse.ArgumentParser, suppress: bool) -> None:
@@ -665,9 +677,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--name", help="file name stem (saved into the session's screenshots/ when a session is active)")
     p.add_argument("--no-image", action="store_true", help="hierarchy only, skip the screenshot")
     p.add_argument("--no-marks", action="store_true", help="preview without numbered boxes")
+    p.add_argument("--bounds", action="store_true", help="add each element's position and size (layout checks)")
+    p.add_argument("--full", action="store_true", help="list every element, also when the screen is unchanged")
     p.add_argument("--image-only", action="store_true",
                    help="screenshot only, no hierarchy dump (keeps the accessibility layer off; for repro runs)")
     p.add_argument("--json", action="store_true")
+
+    commands.add_inspect_parser(sub, "adt", "uiautomator XML")
 
     p = sub.add_parser("tap", help="tap an element or point")
     target = p.add_mutually_exclusive_group(required=True)
@@ -823,7 +839,7 @@ def build_parser() -> argparse.ArgumentParser:
 _NO_DEVICE = {"doctor": cmd_doctor, "devices": cmd_devices, "report": commands.cmd_report, "apk": cmd_apk,
               "issues": commands.cmd_issues}
 _WITH_DEVICE = {
-    "info": cmd_info, "observe": cmd_observe, "tap": cmd_tap, "type": cmd_type, "key": cmd_key,
+    "info": cmd_info, "observe": cmd_observe, "inspect": cmd_inspect, "tap": cmd_tap, "type": cmd_type, "key": cmd_key,
     "swipe": cmd_swipe, "scroll": cmd_scroll, "wait": cmd_wait, "app": cmd_app, "logcat": cmd_logcat,
     "record": cmd_record, "clip": cmd_clip, "session": cmd_session, "touches": cmd_touches,
     "hook": cmd_script, "check": cmd_script, "perf": cmd_perf, "_record-worker": cmd_record_worker,

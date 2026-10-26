@@ -7,7 +7,7 @@ Choose the screens with the user (or from the charter); go through each one the 
 
 ## Per screen
 
-1. `dt observe --name <screen>` and look at the full-size screenshot, not only the preview.
+1. `dt observe --name <screen> --bounds --full` (positions and sizes for the target checks) and look at the full-size screenshot, not only the preview.
 2. Accessibility (from the element tree):
    - Touch targets at least 48x48 dp on Android (dp = px * 160 / dpi, density from `adt info`), 44x44 pt on iOS (`idt` sizes are already in points).
    - Every control has a label; icons and image buttons have a content description (Android) or accessibility label (iOS); decorative images don't (a label read twice is a finding).

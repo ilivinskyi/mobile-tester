@@ -16,6 +16,9 @@ _BOUNDS_RE = re.compile(r"\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]")
 _MAX_LABEL = 80
 # Rows cut off at the screen edge to a sliver can't be tapped reliably; scroll them in first.
 MIN_VISIBLE_PX = 12
+# Layout containers say nothing about what an element is; its flags (click, scroll) carry the meaning.
+GENERIC_CLASSES = frozenset({"View", "ViewGroup", "LinearLayout", "FrameLayout", "RelativeLayout",
+                             "ConstraintLayout", "Other", "Group"})
 
 
 @dataclass(frozen=True)
@@ -122,15 +125,22 @@ class Element:
             out.append(f"RISK:{self.risk}")
         return out
 
-    def describe(self) -> str:
-        """One line per element, e.g. `[3] Button "Sign in" #login_btn @(540,1830) 912x144 [click]`."""
-        parts = [f"[{self.index}]", self.cls]
+    def describe(self, bounds: bool = False) -> str:
+        """One line per element, e.g. `[3] Button "Sign in" #login_btn [click]`.
+
+        Every observe prints one of these per element, so each word costs tokens for the whole session:
+        position and size only with `bounds` (layout and touch-target checks), container classes never.
+        """
+        parts = [f"[{self.index}]"]
+        if self.cls not in GENERIC_CLASSES:
+            parts.append(self.cls)
         if self.label:
             parts.append(f'"{self.label}"')
         if self.short_id:
             parts.append(f"#{self.short_id}")
-        cx, cy = self.bounds.center
-        parts.append(f"@({cx},{cy}) {self.bounds.width}x{self.bounds.height}")
+        if bounds:
+            cx, cy = self.bounds.center
+            parts.append(f"@({cx},{cy}) {self.bounds.width}x{self.bounds.height}")
         if flags := self.flags():
             parts.append(f"[{' '.join(flags)}]")
         return " ".join(parts)
@@ -284,3 +294,56 @@ def find_by_text(snapshot: Snapshot, query: str) -> list[Element]:
 
 def find_by_id(snapshot: Snapshot, rid: str) -> list[Element]:
     return [e for e in snapshot.elements if e.resource_id == rid or e.short_id == rid]
+
+
+def _without_index(line: str) -> str:
+    return line.split("] ", 1)[-1]
+
+
+def listing(elements: list[Element], previous: list[Element] | None = None, bounds: bool = False,
+            depth_step: int = 4) -> list[str]:
+    """The `elements (...)` block of an observation.
+
+    With `previous` (the last observation of the same screen), elements that look exactly as before are left
+    out: on a screen the agent already read, only what changed is news. Indices still refer to the full list.
+    """
+    lines = [el.describe(bounds) for el in elements]
+    indents = ["  " * min(el.depth // depth_step, 3) for el in elements]
+    if previous is None:
+        return [f"elements ({len(elements)}):", *(i + line for i, line in zip(indents, lines, strict=True))]
+    seen = {_without_index(el.describe(bounds)) for el in previous}
+    fresh = [(i, line) for i, line in zip(indents, lines, strict=True) if _without_index(line) not in seen]
+    hidden = len(lines) - len(fresh)
+    head = (f"elements ({len(elements)}; same screen as the last observe, {hidden} unchanged not shown, "
+            f"`--full` lists all):")
+    return [head, *(i + line for i, line in fresh)] if fresh else [head, "  (nothing changed)"]
+
+
+_SKIP_ATTRS = {"index", "children", "package"}
+
+
+def _attrs(node: dict) -> str:
+    """Only the attributes that say something: no empty values, no false flags."""
+    parts = []
+    for key, value in node.items():
+        if key in _SKIP_ATTRS or value in ("", "false", False, None, [], {}):
+            continue
+        if isinstance(value, list) and all(isinstance(v, (int, float)) for v in value):
+            value = ",".join(f"{v:g}" for v in value)
+        elif isinstance(value, dict):
+            value = ",".join(f"{k}={v:g}" if isinstance(v, (int, float)) else f"{k}={v}" for k, v in value.items())
+        text = str(value)
+        parts.append(f'{key}="{text}"' if " " in text or not text else f"{key}={text}")
+    return " ".join(parts)
+
+
+def inspect_lines(el: Element, node: dict, parent: dict | None, children: list[dict], limit: int = 15) -> list[str]:
+    """What `inspect` prints: the element as listed, then the raw node that proves it, its parent and children."""
+    lines = [el.describe(bounds=True), f"node: {_attrs(node)}"]
+    if parent is not None:
+        lines.append(f"parent: {_attrs(parent)}")
+    lines.append(f"children ({len(children)}):" if children else "children: none")
+    lines += [f"  {_attrs(c)}" for c in children[:limit]]
+    if len(children) > limit:
+        lines.append(f"  ... {len(children) - limit} more")
+    return lines

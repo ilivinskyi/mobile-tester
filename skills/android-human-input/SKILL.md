@@ -27,7 +27,7 @@ Bugs found that way may not exist for real users, and bugs real users hit may ne
 6. Keep a person's rhythm: one action, look at the result, next action. Don't chain blind actions without checking.
 7. Prefer `adt observe --image-only` during bug reproduction. Full observes dump the UI through the accessibility layer, which can change how WebViews behave. Use them when you need element indices, not as a habit.
 8. A bug that reproduces only through adb input is **Unconfirmed** until a person reproduces it by hand. Offer the manual-repro protocol (`android-native-tester` repro mode); report automated and manual N of M separately.
-9. Every claim needs its raw source: read the hierarchy XML, logcat, or screenshot that proves it before writing a finding.
+9. Every claim needs its raw source: `adt inspect --index N` for an element, the logcat lines, or the screenshot that proves it, before writing a finding.
 
 ## Rationalizations
 
@@ -46,4 +46,4 @@ Bugs found that way may not exist for real users, and bugs real users hit may ne
 - Using `--fast` for a step that is part of the test or repro steps.
 - Ignoring a "no visible change" warning.
 - Writing a bug as Confirmed when only automation reproduced it.
-- Claiming a missing label, value or element without reading the raw XML.
+- Claiming a missing label, value or element without checking it with `adt inspect`.

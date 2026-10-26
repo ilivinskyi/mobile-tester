@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from . import lifecycle, report
+from . import lifecycle, report, ui
 from .state import PROJECT_DIR
 
 EXIT_OK, EXIT_USAGE, EXIT_DEVICE, EXIT_NOT_FOUND, EXIT_BLOCKED, EXIT_DECISION = 0, 2, 3, 4, 5, 6
@@ -154,3 +154,42 @@ def add_parsers(sub, common: argparse.ArgumentParser) -> None:
             ip.add_argument("--run", help="run folder name the change comes from (retest)")
             ip.add_argument("--build")
 
+
+def previous_elements(previous: dict | None, fingerprint: str) -> list[ui.Element] | None:
+    """The last observation's elements when it showed the same screen, for listing only what changed."""
+    if not previous or fingerprint in ("", "-") or previous.get("fingerprint") != fingerprint:
+        return None
+    return [ui.Element.from_dict(e) for e in previous.get("elements", [])]
+
+
+def observe_after(args, changed: bool | None, mode: str | None) -> bool:
+    """Whether an action prints the new screen itself, saving a separate observe call per step.
+
+    Only when the screen visibly changed. Never in fast mode, and not in repro sessions: reading the UI tree
+    turns on the accessibility layer, which repro runs keep off (they check with plain screenshots).
+    `--observe` forces it, `--no-observe` turns it off.
+    """
+    if getattr(args, "observe", False):
+        return True
+    if getattr(args, "no_observe", False) or getattr(args, "fast", False) or mode == "repro":
+        return False
+    return changed is True
+
+
+def inspect_target(snapshot: ui.Snapshot, args) -> ui.Element:
+    """The element `inspect` is about: by index, or the best text or id match in the last observation."""
+    if args.index is not None:
+        return snapshot.find(args.index)
+    found = ui.find_by_text(snapshot, args.text) if args.text else ui.find_by_id(snapshot, args.id)
+    if not found:
+        raise NotFound(f"no element matching {args.text or args.id!r} in the last observation")
+    return found[0]
+
+
+def add_inspect_parser(sub, tool: str, dump: str) -> None:
+    p = sub.add_parser("inspect", help=f"the raw {dump} node behind an element of the last observe, with its parent "
+                                       "and children: proof for a finding without reading the whole dump")
+    target = p.add_mutually_exclusive_group(required=True)
+    target.add_argument("--index", type=int, help=f"element index from the last `{tool} observe`")
+    target.add_argument("--text", help="best match by label")
+    target.add_argument("--id", help="by resource id / accessibility identifier")

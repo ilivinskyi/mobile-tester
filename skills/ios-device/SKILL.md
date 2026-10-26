@@ -45,14 +45,17 @@ Every step that touches the user's Apple ID, signing or the device itself is the
    Its signing expires after 7 days: `idt runner start` renews it by itself in the last day (about 20 s), and `idt doctor`, `runner status` and `session start` show the date.
 6. Keep the device unlocked while testing: a locked device stops the runner.
 
-## The loop: observe, look, act, check
+## The loop: observe, act, check
 
 1. `idt observe` reads the app's element tree and takes a screenshot, and prints the screen identity and a numbered element list.
    It reads the session's app, or the app `idt` last launched, or `--app BUNDLE`; when that app isn't in front it shows SpringBoard (home screen, system alerts) and says so.
-2. Look at the `preview:` image (open it with your file or image viewing tool). Its numbered boxes match the `[index]` in the list.
+2. Read the element list first; it is enough for most steps. Open the `preview:` image (numbered boxes match the `[index]`) only when it adds something: a screen you haven't seen yet, elements without labels, a layout or visual question, a judgement about what a person sees, and in ui-review mode. Every image stays in the conversation for the rest of the session.
 3. Act on one element: `idt tap --index N`, `idt type "text" --index N`, `idt scroll down`, `idt key back`.
    Human mode is the default: pacing, press duration, finger position and the back swipe are handled for you.
-4. Read the action's output. "no visible change" means it may not have landed: observe before continuing.
+4. Read the action's output. When the screen changed, it ends with the new element list (only what changed when it's the same screen), so no separate `idt observe` is needed; `--no-observe` skips it.
+   "no visible change" means it may not have landed: observe before continuing.
+   In repro sessions actions don't list the screen (reading the tree turns on the accessibility layer); check with `idt observe --image-only`.
+5. To prove a finding about an element (a missing label, a wrong value, a disabled state), run `idt inspect --index N`: the raw tree node, its parent and children, in a few lines. Don't read the saved tree files whole.
 
 Choosing a target, in order of preference:
 - `--index N` from the latest observation.

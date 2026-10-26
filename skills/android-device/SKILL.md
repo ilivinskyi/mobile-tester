@@ -26,13 +26,16 @@ Use this skill on its own only for one-off device tasks: a screenshot, checking 
 2. With several devices connected, pass `-s SERIAL` on every command (from `adt devices`).
 3. Run `adt info` once; it reports navigation mode, keyboard, locale and accessibility state for the report.
 
-## The loop: observe, look, act, check
+## The loop: observe, act, check
 
 1. `adt observe` dumps the UI hierarchy and takes a screenshot, and prints the screen identity and a numbered element list.
-2. Look at the `preview:` image (open it with your file or image viewing tool). Its numbered boxes match the `[index]` in the list.
+2. Read the element list first; it is enough for most steps. Open the `preview:` image (numbered boxes match the `[index]`) only when it adds something: a screen you haven't seen yet, elements without labels, a layout or visual question, a judgement about what a person sees, and in ui-review mode. Every image stays in the conversation for the rest of the session.
 3. Act on one element: `adt tap --index N`, `adt type "text" --index N`, `adt scroll down`, `adt key back`.
    Human mode is the default: pacing, press duration, finger position and navigation style are handled for you.
-4. Read the action's output. "no visible change" means it may not have landed: observe before continuing.
+4. Read the action's output. When the screen changed, it ends with the new element list (only what changed when it's the same screen), so no separate `adt observe` is needed; `--no-observe` skips it.
+   "no visible change" means it may not have landed: observe before continuing.
+   In repro sessions actions don't list the screen (reading the hierarchy turns on the accessibility layer); check with `adt observe --image-only`.
+5. To prove a finding about an element (a missing label, a wrong value, a disabled state), run `adt inspect --index N`: the raw hierarchy node, its parent and children, in a few lines. Don't read the saved hierarchy files whole.
 
 Choosing a target, in order of preference:
 - `--index N` from the latest observation.

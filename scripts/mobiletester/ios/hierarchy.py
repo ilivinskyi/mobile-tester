@@ -232,3 +232,22 @@ def screen_title(snapshot: Snapshot) -> str:
     texts = [e for e in snapshot.elements if e.cls == "StaticText"
              and STATUS_BAR_PT <= e.bounds.top < snapshot.screen.height * 0.2]
     return min(texts, key=lambda e: e.bounds.top).label if texts else ""
+
+
+def raw_node(data: dict, el: Element) -> tuple[dict, dict | None, list[dict]]:
+    """The element's own node in the runner's tree, its parent and its children: the proof `idt inspect` prints.
+
+    `el.z` starts with 0 for the app's windows or 1 for system alerts, then the child position per level
+    (ON_TOP marks bars drawn above the content and is not a position).
+    """
+    path = [p for p in el.z[1:] if p != ON_TOP]
+    siblings = _children(data["tree"]) if el.z[0] == 0 else data.get("alerts", [])
+    parent, node = None, None
+    for position in path:
+        parent, node = node, siblings[position]
+        siblings = _children(node)
+
+    def flat(n: dict) -> dict:
+        return {k: v for k, v in n.items() if k != "children"}
+
+    return flat(node), flat(parent) if parent is not None else None, [flat(c) for c in _children(node)]

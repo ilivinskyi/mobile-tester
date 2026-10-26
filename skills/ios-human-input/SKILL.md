@@ -29,7 +29,7 @@ Bugs found that way may not exist for real users, and bugs real users hit may ne
 8. A tap on a row goes to a random point near its center, as a finger would. Rows with small controls inside (check marks, toggles drawn as images) can take that tap: when the result is not what the row should do, observe and say which part was hit. If the inner control isn't in the element list, that itself is an accessibility finding.
 9. Prefer `idt observe --image-only` during bug reproduction; full observes read the UI through the accessibility layer.
 10. A bug that reproduces only through automation is **Unconfirmed** until a person reproduces it by hand (on a simulator: clicking in Simulator.app; on a device: with their own fingers). Offer the manual-repro protocol (repro mode); report automated and manual N of M separately.
-11. Every claim needs its raw source: read the saved tree JSON, the app log, the crash report or the screenshot that proves it before writing a finding.
+11. Every claim needs its raw source: `idt inspect --index N` for an element, the app log, the crash report or the screenshot that proves it, before writing a finding.
 
 ## Rationalizations
 

@@ -90,7 +90,7 @@ Problems outside the charter (another screen, an unrelated feature):
 
 While testing:
 - Write each finding into `findings.json` as soon as it's verified, not at the end. Fields and severity scale: [report-standard.md](../mobile-tester-shared/report-standard.md).
-- Before writing a finding, read the raw source that proves it (hierarchy XML, logcat, screenshot). If a finding turns out wrong, set it to Retracted with the reason; never delete it.
+- Before writing a finding, check the raw source that proves it: `adt inspect --index N` for an element (never the whole `latest.xml`), the relevant logcat lines (search them, don't read the file whole), the screenshot. If a finding turns out wrong, set it to Retracted with the reason; never delete it.
 - Save evidence with `adt observe --name <id>-<what>` and note the action log time for video clips.
 - A finding that matches an open known issue (same behaviour in the same area): set `"known_issue": "K-n"` and keep it short; don't re-investigate. It shows as "seen again".
 - `CRASH right after this action` in an action's output: the crash watch caught it at that step. Capture evidence (`adt observe`, `adt logcat crashes --package PKG`), write the finding at once with the step that triggered it, then follow the `crash_found` decision (default: restart the app and continue).

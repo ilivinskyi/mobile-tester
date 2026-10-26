@@ -29,7 +29,7 @@ from ..core.commands import (
     NeedsDecision,
     NotFound,
 )
-from . import capture, crash, device, devicectl, entry_script, keyboard, runner, signing, simctl
+from . import capture, crash, device, devicectl, entry_script, hierarchy, keyboard, runner, signing, simctl
 from .device import Device
 from .human import Driver
 from .runner import Runner, RunnerError
@@ -55,7 +55,8 @@ def _ready(dev: Device) -> Device:
     return dev
 
 
-def _print_observation(obs: device.Observation, as_json: bool) -> None:
+def _print_observation(obs: device.Observation, as_json: bool, bounds: bool = False,
+                       previous: list[ui.Element] | None = None) -> None:
     if as_json:
         print(json.dumps(obs.to_dict(), ensure_ascii=False))
         return
@@ -75,9 +76,7 @@ def _print_observation(obs: device.Observation, as_json: bool) -> None:
     if risky:
         print(f"WARNING: {len(risky)} risky element(s) on screen: "
               + ", ".join(f"[{e.index}] {e.risk}" for e in risky))
-    print(f"elements ({len(s.elements)}):")
-    for el in s.elements:
-        print("  " * min(el.depth // 6, 3) + el.describe())
+    print("\n".join(ui.listing(s.elements, previous, bounds, depth_step=6)))
 
 
 def _driver(dev: Device, args) -> Driver:
@@ -89,8 +88,10 @@ def _after(dev: Device, args, outcome=None) -> None:
         print(warning)
     if args.fast or outcome is None or outcome.changed is None:
         time.sleep(getattr(args, "settle", 0.5))
-    if getattr(args, "observe", False):
-        _print_observation(device.observe(dev, save_dir=_session_shots(dev)), as_json=False)
+    if commands.observe_after(args, outcome.changed if outcome else None, session.mode(dev.udid)):
+        before = device.last_observation(dev.udid)
+        obs = device.observe(dev, save_dir=_session_shots(dev))
+        _print_observation(obs, as_json=False, previous=commands.previous_elements(before, obs.fingerprint))
 
 
 def _session_shots(dev: Device) -> Path | None:
@@ -312,9 +313,18 @@ def cmd_observe(args, dev: Device) -> int:
         target.write_bytes(dev.runner.screenshot())
         print(f"screenshot: {target}  (no tree read: accessibility untouched)")
         return EXIT_OK
+    before = None if args.full else device.last_observation(dev.udid)
     obs = device.observe(dev, bundle_id=args.app, save_dir=save_dir, name=args.name, with_image=not args.no_image,
                          marks=not args.no_marks)
-    _print_observation(obs, args.json)
+    _print_observation(obs, args.json, args.bounds, commands.previous_elements(before, obs.fingerprint))
+    return EXIT_OK
+
+
+def cmd_inspect(args, dev: Device) -> int:
+    snap, _, _ = device.last_snapshot(dev.udid)
+    el = commands.inspect_target(snap, args)
+    tree = json.loads((state.device_dir(dev.udid) / "latest_tree.json").read_text(encoding="utf-8"))
+    print("\n".join(ui.inspect_lines(el, *hierarchy.raw_node(tree, el))))
     return EXIT_OK
 
 
@@ -703,7 +713,9 @@ def _add_settle(p: argparse.ArgumentParser, observe: bool = True) -> None:
     p.add_argument("--settle", type=float, default=0.5,
                    help="seconds to wait after the action when the screen isn't checked (fast mode)")
     if observe:
-        p.add_argument("--observe", action="store_true", help="observe right after the action")
+        p.add_argument("--observe", action="store_true",
+                       help="always list the screen after the action (default: only when it changed)")
+        p.add_argument("--no-observe", action="store_true", help="don't list the screen after the action")
 
 
 def _global_flags(parser: argparse.ArgumentParser, suppress: bool) -> None:
@@ -747,8 +759,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--name", help="file name stem (saved into the session's screenshots/ when a session is active)")
     p.add_argument("--no-image", action="store_true", help="elements only, skip the screenshot")
     p.add_argument("--no-marks", action="store_true", help="preview without numbered boxes")
+    p.add_argument("--bounds", action="store_true", help="add each element's position and size (layout checks)")
+    p.add_argument("--full", action="store_true", help="list every element, also when the screen is unchanged")
     p.add_argument("--image-only", action="store_true", help="screenshot only, no tree read (for repro runs)")
     p.add_argument("--json", action="store_true")
+
+    commands.add_inspect_parser(sub, "idt", "UI tree")
 
     p = sub.add_parser("tap", help="tap an element or point (points, not pixels)")
     target = p.add_mutually_exclusive_group(required=True)
@@ -875,10 +891,10 @@ def build_parser() -> argparse.ArgumentParser:
 _NO_DEVICE = {"doctor": cmd_doctor, "devices": cmd_devices, "report": commands.cmd_report,
               "issues": commands.cmd_issues}
 _WITH_DEVICE = {
-    "runner": cmd_runner, "info": cmd_info, "observe": cmd_observe, "tap": cmd_tap, "type": cmd_type,
-    "key": cmd_key, "swipe": cmd_swipe, "scroll": cmd_scroll, "wait": cmd_wait, "app": cmd_app, "log": cmd_log,
-    "crashes": cmd_crashes, "record": cmd_record, "clip": cmd_clip, "session": cmd_session, "hook": cmd_script,
-    "check": cmd_script,
+    "runner": cmd_runner, "info": cmd_info, "observe": cmd_observe, "inspect": cmd_inspect, "tap": cmd_tap,
+    "type": cmd_type, "key": cmd_key, "swipe": cmd_swipe, "scroll": cmd_scroll, "wait": cmd_wait, "app": cmd_app,
+    "log": cmd_log, "crashes": cmd_crashes, "record": cmd_record, "clip": cmd_clip, "session": cmd_session,
+    "hook": cmd_script, "check": cmd_script,
 }
 
 

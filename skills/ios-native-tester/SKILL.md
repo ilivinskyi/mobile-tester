@@ -98,7 +98,7 @@ Problems outside the charter (another screen, an unrelated feature):
 
 While testing:
 - Write each finding into `findings.json` as soon as it's verified, not at the end. Fields and severity scale: [report-standard.md](../mobile-tester-shared/report-standard.md).
-- Before writing a finding, read the raw source that proves it: the saved tree (`idt observe --name X` writes `X.json` next to the screenshot), the screenshot, `logs/app.log` (simulators), or the crash report. If a finding turns out wrong, set it to Retracted with the reason; never delete it.
+- Before writing a finding, check the raw source that proves it: `idt inspect --index N` for an element (never the whole saved tree), the screenshot, the relevant lines of `logs/app.log` (search them, don't read the file whole), or the crash report. If a finding turns out wrong, set it to Retracted with the reason; never delete it.
 - Save evidence with `idt observe --name <id>-<what>` and note the action log time for video clips.
 - A finding that matches an open known issue (same behaviour in the same area): set `"known_issue": "K-n"` and keep it short; don't re-investigate. It shows as "seen again".
 - `CRASH right after this action` in an action's output: the crash watch found a new crash report of the app. Capture evidence (`idt observe --image-only`, `idt crashes`), write the finding at once with the step that triggered it, then follow the `crash_found` decision (default: restart the app and continue).

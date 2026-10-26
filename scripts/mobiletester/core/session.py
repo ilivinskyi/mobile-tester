@@ -70,6 +70,13 @@ def package(serial: str) -> str | None:
     return (data or {}).get("package") or None
 
 
+def mode(serial: str) -> str | None:
+    """The active session's mode (explore, repro, ...), or None outside a session."""
+    directory = run_dir(serial)
+    data = state.read_json(directory / "session.json") if directory else None
+    return (data or {}).get("mode") or None
+
+
 def latest_run_dir(serial: str) -> Path | None:
     """The active session's folder, or the last ended one."""
     data = active(serial) or state.read_json(state.device_dir(serial) / "last_session.json")

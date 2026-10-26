@@ -28,15 +28,23 @@ Global options (before or after the command):
 - `--name` saves screenshot, preview and the raw tree (`STEM.json`) into the active session's `screenshots/`.
 - `--image-only` takes only a screenshot, without reading the tree (use in repro runs).
 
+- `--bounds` adds each element's position and size (ui-review, layout questions); `--full` lists every element even when the screen is the same as at the last observe (by default only new or changed ones are listed then).
+
 Element line format:
 
 ```
-[1] Button "Add" #plus @(374,79) 23x22 [click]
+[1] Button "Add" #plus [click]
 ```
+
+With `--bounds`: `[1] Button "Add" #plus @(374,79) 23x22 [click]`.
+
+`inspect --index N | --text T | --id ID` prints the raw tree node behind an element of the last observe, with its parent and children (no device call). Use it to prove a finding instead of reading the saved tree JSON.
+
+Actions (`tap`, `type`, `key`, `scroll`, `swipe`) end with the new element list when the screen changed: `--observe` always lists it, `--no-observe` never. Not in repro sessions or with `--fast`.
 
 - Type: the XCUITest element type (`Button`, `Cell`, `TextField`, `StaticText`, `Image`, `Switch`, `CollectionView`, ...).
 - `"..."` label: the accessibility label; text fields show their placeholder (never what was typed); cells and buttons without a label show their texts joined by ` | `.
-- `#id` accessibility identifier, `@(x,y)` center in points, `WxH` size in points.
+- `#id` accessibility identifier; with `--bounds`, `@(x,y)` center and `WxH` size in points. `Other` containers show no type.
 - Flags: `click checked/unchecked scroll edit password selected disabled RISK:<category>`.
 - Navigation bars, tab bars and toolbars count as drawn above the content scrolling under them.
 - System alerts (SpringBoard) are listed after the app's elements and are on top.

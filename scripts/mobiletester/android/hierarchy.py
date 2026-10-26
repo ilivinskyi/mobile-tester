@@ -133,3 +133,16 @@ def parse(xml: str, display: tuple[int, int] | None = None) -> Snapshot:
     return Snapshot(screen=screen, rotation=rotation, package=package, elements=elements)
 
 
+
+
+def raw_node(xml: str, el: Element) -> tuple[dict, dict | None, list[dict]]:
+    """The element's own node in the dump, its parent and its children: the proof `adt inspect` prints.
+
+    `el.z` holds (drawing-order, position) per tree level, so the positions lead straight to the node.
+    """
+    root = ET.fromstring(xml.strip().encode("utf-8"))
+    parent, node = None, root
+    for position in el.z[1::2]:
+        parent, node = node, node.findall("node")[position]
+    return (dict(node.attrib), dict(parent.attrib) if parent is not None and parent is not root else None,
+            [dict(child.attrib) for child in node.findall("node")])

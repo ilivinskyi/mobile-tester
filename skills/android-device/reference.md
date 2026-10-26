@@ -26,17 +26,27 @@ Global options (before or after the command):
 - `--name` saves screenshot, preview and XML into the active session's `screenshots/`.
 - `--image-only` takes only a screenshot: no hierarchy dump, so the accessibility layer stays off (use in repro runs).
 
+- `--bounds` adds each element's position and size (ui-review, layout questions); `--full` lists every element even when the screen is the same as at the last observe (by default only new or changed ones are listed then).
+
 Element line format:
 
 ```
-[7] LinearLayout "Storage | 16% used" #storage_row @(540,1396) 1080x195 [click RISK:payment]
+[7] "Storage | 16% used" #storage_row [click RISK:payment]
+[8] Button "Next" #next_btn [click]
 ```
 
+With `--bounds`: `[7] "Storage | 16% used" #storage_row @(540,1396) 1080x195 [click RISK:payment]`.
+
 - `"..."` label: own text or content description; clickable containers show their non-interactive children's texts joined by ` | `.
-- `#id` short resource id, `@(x,y)` center in device pixels, `WxH` size in device pixels.
+- Class names are left out for plain containers (`View`, `LinearLayout`, `FrameLayout`, ...); the flags say what they do.
+- `#id` short resource id; with `--bounds`, `@(x,y)` center and `WxH` size in device pixels.
 - Flags: `click long checked/unchecked scroll edit password focused selected disabled sr-only RISK:<category>`.
 - `sr-only`: text too small to see, there for screen readers only (e.g. a value whose visible version is drawn as an image). Read it, don't tap it.
 - `RISK:` is set for action-like wording (short labels, not questions or sentences) and resource ids.
+
+`inspect --index N | --text T | --id ID` prints the raw XML node behind an element of the last observe, with its parent and children (no device call). Use it to prove a finding instead of reading `latest.xml`.
+
+Actions (`tap`, `type`, `key`, `scroll`, `swipe`) end with the new element list when the screen changed: `--observe` always lists it, `--no-observe` never. Not in repro sessions or with `--fast`.
 
 State files per device under `MT_HOME` (default `.mobile-tester/state/<serial>/` in the project): `latest.json`, `latest.xml`, `latest.png`, `latest_preview.jpg`, `device.json` (cached facts).
 

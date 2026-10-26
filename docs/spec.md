@@ -6,7 +6,7 @@ Decisions from the initial interview (2026-10-23), revised after the Jumbo sessi
 
 - Target: any APK / store app on Android; on iOS any simulator build, and on a real device any installed app or signed build; black-box (no source access assumed).
 - Devices: Android phones over USB and emulators; iOS simulators, and real iPhones and iPads over USB or Wi-Fi (first tried on an iPhone 15 Pro Max (iOS 27.0.1, USB and Wi-Fi) on 2026-10-24).
-- Packaging: Claude Code plugin `mobile-tester` (this repo, still named android-tester on GitHub), skills in the open Agent Skills format.
+- Packaging: repo `ilivinskyi/mobile-tester`, skills in the open Agent Skills format for any agent that reads them, plus a Claude Code plugin manifest.
 - iOS design and decisions: [superpowers/specs/2026-10-24-mobile-tester-design.md](superpowers/specs/2026-10-24-mobile-tester-design.md).
 
 ## Skills

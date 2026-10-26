@@ -1,16 +1,22 @@
-# Mobile Tester for Claude Code
+# Mobile Tester
 
-**Let Claude test your Android or iOS app the way a person would, on a real phone, an emulator or an iOS simulator, and hand you a QA report you can act on.**
+**Let your AI agent test your Android or iOS app the way a person would, on a real phone, an emulator, an iOS simulator or a real iPhone, and hand you a QA report you can act on.**
 
-`/android-native-tester` and `/ios-native-tester` run exploratory testing, written test cases, bug reproduction and UI/accessibility reviews on any Android or iOS app.
-They drive the device with human-like input, check every step, record evidence, and end each session with the same standard report and Jira-ready bug drafts.
+Mobile Tester is a set of agent skills plus two command-line tools.
+It works with any agent that supports [Agent Skills](https://agentskills.io): Claude Code, Codex, OpenCode, pi and others.
+It runs exploratory testing, written test cases, bug reproduction and UI/accessibility reviews on any Android or iOS app.
+It drives the device with human-like input, checks every step, records evidence, and ends each session with the same standard report and Jira-ready bug drafts.
+
+Ask your agent in plain words:
 
 ```
-/android-native-tester explore com.example.app
+Explore the Notes app on my Pixel for 15 minutes.
 ```
 ```
-/ios-native-tester explore com.example.app
+Reproduce PROJ-123 on the iPhone simulator.
 ```
+
+In Claude Code the same sessions also start with `/android-native-tester` and `/ios-native-tester`.
 
 iOS support is new: it works on simulators, and has no performance or memory measurements yet.
 Support for real iPhones and iPads is newer still: so far it has run on one iPhone, over USB and Wi-Fi.
@@ -26,7 +32,7 @@ The trouble is *how* they drive it:
   `KEYCODE_BACK` is not the back swipe that gesture-navigation users make.
   Apps, especially WebView and React Native apps, can react differently to each of these.
 - **So automation finds bugs that people can't reproduce, and misses ones they hit.**
-  While building this plugin, one "bug" reproduced in 17 of 18 automated runs and in 0 of 2 attempts by a person on the same phone.
+  While building this project, one "bug" reproduced in 17 of 18 automated runs and in 0 of 2 attempts by a person on the same phone.
   An agent left to itself would have filed it as a confirmed Major bug.
 - **Agents act faster than any person, and blindly.**
   A tap swallowed by an overlay, or sent to coordinates from a stale screen, goes unnoticed, and every later step is invalid.
@@ -34,7 +40,7 @@ The trouble is *how* they drive it:
   It checks what apps of some other kind usually do, not what *this* app is supposed to do.
 - **Reports come out different every time,** with missing environment details, steps that can't be followed, and no evidence.
 
-This plugin addresses each of these, with rules the model follows and a CLI that enforces them.
+Mobile Tester addresses each of these, with rules the model follows and command-line tools that enforce them.
 
 ## Main benefits
 
@@ -59,21 +65,21 @@ This plugin addresses each of these, with rules the model follows and a CLI that
 - **Auto mode when you want it.**
   Approve defaults for routine decisions once (permission prompts, consent banners, login, crash handling) and the session runs without stopping, logging every decision it made for you.
 - **Jira-friendly.**
-  Link a ticket (read through the Atlassian connector, or paste it), and get one Markdown bug draft per finding.
+  Link a ticket (read through your agent's Jira integration if it has one, or paste it), and get one Markdown bug draft per finding.
   Nothing is created in Jira without your explicit approval.
 
 ## How it works
 
 ```mermaid
 flowchart TD
-    U["/android-native-tester"] --> A["android-native-tester skill<br/>onboarding, interview, modes, report"]
+    U["Your request: test an Android app"] --> A["android-native-tester skill<br/>onboarding, interview, modes, report"]
     A --> H["android-human-input skill<br/>rules for human-like input"]
     A --> D["android-device skill<br/>adt CLI reference"]
     H --> C["adt CLI (Python)<br/>human mode, checks, evidence"]
     D --> C
     C -->|adb| P["Phone or emulator"]
     C --> R["reports/&lt;date&gt;-&lt;app&gt;-&lt;mode&gt;/<br/>index.html, bugs/*.md, findings.json"]
-    I["/ios-native-tester"] --> J["ios-native-tester skill"]
+    I["Your request: test an iOS app"] --> J["ios-native-tester skill"]
     J --> K["ios-human-input + ios-device skills"]
     K --> L["idt CLI (Python)"]
     L -->|XCUITest runner| M["iOS simulator, iPhone or iPad"]
@@ -86,23 +92,23 @@ Both CLIs share one core: the report, the finding lifecycle, sessions, guardrail
 
 | Skill | Starts | Purpose |
 |---|---|---|
-| `android-native-tester` | When you type `/android-native-tester`, or ask in plain words to test an app ("explore the Notes app for 15 minutes") | Onboarding on first use, the session interview, a session in one of six modes, the standard report |
+| `android-native-tester` | When you ask to test an Android app ("explore the Notes app for 15 minutes"); in Claude Code also `/android-native-tester` | Onboarding on first use, the session interview, a session in one of six modes, the standard report |
 | `android-human-input` | Automatically, whenever a device is driven | The rules for human-like input and honest reproduction |
 | `android-device` | Automatically | Reference for the `adt` command-line tool that does the device work |
-| `ios-native-tester` | When you type `/ios-native-tester`, or ask to test an app on iOS | The same session flow on an iOS simulator or a real iPhone or iPad (five modes; memory is Android only for now) |
+| `ios-native-tester` | When you ask to test an iOS app; in Claude Code also `/ios-native-tester` | The same session flow on an iOS simulator or a real iPhone or iPad (five modes; memory is Android only for now) |
 | `ios-human-input` | Automatically, whenever a simulator or device is driven | Human-like input on iOS: held touches, the left-edge back swipe, typing key by key |
 | `ios-device` | Automatically | Reference for the `idt` command-line tool |
 | `mobile-tester-shared` | Never on its own | Onboarding, interview, modes, auto mode, report standard and templates used by both testers |
 
 ## Requirements
 
-- An agent that supports [Agent Skills](https://agentskills.io): [Claude Code](https://code.claude.com) (as a plugin), or Codex, OpenCode, pi and others (see "Install in other agents").
+- An agent that supports [Agent Skills](https://agentskills.io): Claude Code, Codex, OpenCode, pi and others (see "Install in any agent").
 - For iOS: a Mac with Xcode (simulators come with it), plus uv and ffmpeg as below. The Android tools are not needed for iOS, and the other way round.
 - Android SDK Platform-Tools (`adb`).
 - [uv](https://docs.astral.sh/uv/), which runs the bundled Python tool with its dependencies; no manual Python setup.
 - `ffmpeg` and `ffprobe` for joining recordings and cutting bug clips.
 - Optional: a JDK (for `keytool`) or `openssl`, to show certificate owners when inspecting APKs.
-- Optional: [scrcpy](https://github.com/Genymobile/scrcpy), to watch the phone on your computer while Claude drives it.
+- Optional: [scrcpy](https://github.com/Genymobile/scrcpy), to watch the phone on your computer while the agent drives it.
 
 ### Windows
 
@@ -122,7 +128,7 @@ winget install --id EclipseAdoptium.Temurin.21.JDK -e
 winget install --id Genymobile.scrcpy -e
 ```
 
-If you install Android Studio instead of Platform-Tools, the plugin finds `adb` in the default SDK folder, or wherever `ANDROID_HOME` points.
+If you install Android Studio instead of Platform-Tools, `adt` finds `adb` in the default SDK folder, or wherever `ANDROID_HOME` points.
 
 ### macOS
 
@@ -202,12 +208,70 @@ idt reaches the runner through the encrypted tunnel Xcode's CoreDevice keeps to 
 A real device counts as personal unless your device inventory says otherwise: installing, uninstalling and clearing an app's data there are refused until you approve them, and the report says the device is physical and personal.
 The app under test is whatever is installed on the device (App Store apps too), or a signed device build (`.app`, or the `.app` inside an `.ipa`).
 
-## Install in Claude Code
+## Install in any agent
 
-Inside Claude Code:
+The skills follow the open [Agent Skills](https://agentskills.io) format, so any agent that reads `SKILL.md` folders can use them: Codex, OpenCode, pi, Claude Code and others.
+Two parts: the `adt` and `idt` commands the skills call, and the skill folders.
+
+1. Install `adt` and `idt` as commands (needs [uv](https://docs.astral.sh/uv/)):
+
+   ```bash
+   uv tool install git+https://github.com/ilivinskyi/mobile-tester
+   ```
+
+   Check it with `adt doctor` (Android) or `idt doctor` (iOS).
+
+2. Get the skills:
+
+   ```bash
+   git clone https://github.com/ilivinskyi/mobile-tester.git ~/mobile-tester
+   ```
+
+3. Copy the folders in `skills/` into a skills folder your agent reads.
+   For all your projects (global), `~/.agents/skills/` is read by Codex, OpenCode and pi:
+
+   ```bash
+   mkdir -p ~/.agents/skills && cp -R ~/mobile-tester/skills/. ~/.agents/skills/
+   ```
+
+   On Windows (PowerShell):
+
+   ```powershell
+   New-Item -ItemType Directory -Force "$HOME\.agents\skills"; Copy-Item -Recurse -Force "$HOME\mobile-tester\skills\*" "$HOME\.agents\skills\"
+   ```
+
+4. Start a new agent session and ask it to test an app, for example "explore the Notes app on my phone for 15 minutes".
+
+| Agent | Global (all projects) | One project only |
+|---|---|---|
+| Codex | `~/.agents/skills/` | `.agents/skills/` |
+| OpenCode | `~/.agents/skills/` or `~/.config/opencode/skills/` | `.agents/skills/` or `.opencode/skills/` |
+| pi | `~/.agents/skills/` or `~/.pi/agent/skills/` | `.agents/skills/` (after you trust the project) or `.pi/skills/` |
+| Claude Code | `~/.claude/skills/`, or the plugin below | `.claude/skills/` |
+| Other Agent Skills agents | their skills folder | their project skills folder |
+
+These folders change between agent versions; check your agent's skills documentation if the skills don't show up.
+
+To update later:
+
+```bash
+uv tool upgrade mobile-tester
+```
+```bash
+git -C ~/mobile-tester pull
+```
+
+Then copy the skill folders again (or link them instead of copying, so `git pull` is enough).
+
+Installed it before the project was renamed from android-tester?
+Remove the old command first (`uv tool uninstall android-tester`), then install as above; the old Android-only skill folders can be replaced by the new ones.
+
+## Install as a Claude Code plugin
+
+In Claude Code the plugin is an alternative to the steps above: it brings the skills and runs `adt` and `idt` from its own copy, so nothing else needs installing.
 
 ```
-/plugin marketplace add ilivinskyi/android-tester
+/plugin marketplace add ilivinskyi/mobile-tester
 ```
 ```
 /plugin install mobile-tester@mobile-tester
@@ -216,13 +280,13 @@ Inside Claude Code:
 On Claude Code 2.1.275 or later, one step does both:
 
 ```
-/plugin install mobile-tester --marketplace ilivinskyi/android-tester
+/plugin install mobile-tester --marketplace ilivinskyi/mobile-tester
 ```
 
 Or from a terminal:
 
 ```bash
-claude plugin marketplace add ilivinskyi/android-tester
+claude plugin marketplace add ilivinskyi/mobile-tester
 ```
 ```bash
 claude plugin install mobile-tester@mobile-tester
@@ -234,112 +298,56 @@ Typing `/` should now list `android-native-tester` and `ios-native-tester`.
 To try it without installing, clone the repo and load it for one session:
 
 ```bash
-git clone https://github.com/ilivinskyi/android-tester.git
+git clone https://github.com/ilivinskyi/mobile-tester.git
 ```
 ```bash
-claude --plugin-dir ./android-tester
+claude --plugin-dir ./mobile-tester
 ```
-
-## Install in other agents
-
-The skills follow the open [Agent Skills](https://agentskills.io) format, so any agent that reads `SKILL.md` folders can use them: Codex, OpenCode, pi, and Claude Code without the plugin.
-Two parts: the `adt` and `idt` commands the skills call, and the skill folders.
-
-1. Install `adt` and `idt` as commands (needs [uv](https://docs.astral.sh/uv/)):
-
-   ```bash
-   uv tool install git+https://github.com/ilivinskyi/android-tester
-   ```
-
-   Check it with `adt doctor` (Android) or `idt doctor` (iOS).
-
-2. Get the skills:
-
-   ```bash
-   git clone https://github.com/ilivinskyi/android-tester.git ~/android-tester
-   ```
-
-3. Copy the folders in `skills/` into a skills folder your agent reads.
-   For all your projects (global), `~/.agents/skills/` is read by Codex, OpenCode and pi:
-
-   ```bash
-   mkdir -p ~/.agents/skills && cp -R ~/android-tester/skills/. ~/.agents/skills/
-   ```
-
-   On Windows (PowerShell):
-
-   ```powershell
-   New-Item -ItemType Directory -Force "$HOME\.agents\skills"; Copy-Item -Recurse -Force "$HOME\android-tester\skills\*" "$HOME\.agents\skills\"
-   ```
-
-4. Start a new agent session and ask it to test an app, for example "explore the Notes app on my phone for 15 minutes".
-
-| Agent | Global (all projects) | One project only |
-|---|---|---|
-| Codex | `~/.agents/skills/` | `.agents/skills/` |
-| OpenCode | `~/.agents/skills/` or `~/.config/opencode/skills/` | `.agents/skills/` or `.opencode/skills/` |
-| pi | `~/.agents/skills/` or `~/.pi/agent/skills/` | `.agents/skills/` (after you trust the project) or `.pi/skills/` |
-| Claude Code (without the plugin) | `~/.claude/skills/` | `.claude/skills/` |
-| Other Agent Skills agents | their skills folder | their project skills folder |
-
-These folders change between agent versions; check your agent's skills documentation if the skills don't show up.
-
-To update later:
-
-```bash
-uv tool upgrade mobile-tester
-```
-```bash
-git -C ~/android-tester pull
-```
-
-Then copy the skill folders again (or link them instead of copying, so `git pull` is enough).
-The Claude Code plugin runs `adt` from its own copy and needs neither step.
 
 ## Run your first session
 
-Open Claude Code in a folder where reports and settings should live (for example a QA folder or your app's repository), then run:
+Open your agent in a folder where reports and settings should live (for example a QA folder or your app's repository), and ask it to test your app:
 
 ```
-/android-native-tester
+Test the Notes app on my phone for 15 minutes.
 ```
 
-For an iOS app, run `/ios-native-tester` instead; everything below works the same, with a simulator in place of the phone.
-Asking in plain words works too ("test the Notes app on my phone, 15 minutes"): the request loads the same skill, with your config and auto mode.
+For an iOS app, say so ("on the iPhone simulator", "on my iPhone"); everything below works the same, with a simulator or iPhone in place of the Android phone.
+In Claude Code, `/android-native-tester` and `/ios-native-tester` start the same skills.
 
 1. **Onboarding (first time only).**
    Your name for reports, the reports folder, an optional Jira project, your devices (and which one is personal), an app profile with a description of your app in your own words, whether to report problems noticed outside a session's scope (and which unfinished areas to never report), and whether to use auto mode.
    Everything is saved in `.mobile-tester/` so later sessions start straight away; one setup serves both platforms.
 2. **Session interview.**
-   Which app (type its name as on your phone, or its package id; Claude finds it on the device and lets you pick when several match) or build file, a ticket or context, the mode, the charter, the device, the time box, and what evidence to collect.
+   Which app (type its name as on your phone, or its package id; the agent finds it on the device and lets you pick when several match) or build file, a ticket or context, the mode, the charter, the device, the time box, and what evidence to collect.
    The skill sums it up as a plan and waits for your go.
 3. **Preparation.**
-   Device check, build check and install when needed, your setup hooks, then recording and logcat start.
+   Device check, build check and install when needed, your setup hooks, a reset to the start state, then screen recording and log capture start.
 4. **Testing** in the chosen mode, writing findings as it goes.
 5. **Wrap-up.**
    A video clip per bug, the report checked and built, an offer to reproduce unconfirmed bugs by hand, Jira drafts, and new knowledge about the app added to its notes.
 
 ### Modes
 
-| Mode | Example | What happens |
+| Mode | Ask for example | What happens |
 |---|---|---|
-| `explore` | `/android-native-tester explore com.example.app` | Time-boxed exploratory testing guided by a charter, the app's main flows and rules |
-| `test-case` | `/android-native-tester test-case tests/TC-001.md` | Runs written test cases step by step and reports pass, fail or blocked per step |
-| `repro` | `/android-native-tester repro PROJ-123` | Reproduces a reported bug, narrows the trigger one variable at a time, confirms with a person |
-| `ui-review` | `/android-native-tester ui-review com.example.app` | Accessibility (touch targets, labels, contrast, screen-reader text) and visual review |
-| `retest` | `/android-native-tester retest com.example.app` | Runs the regression test cases of the app's open known issues on a new build and marks each Fixed, Still reproduces or Can't verify |
-| `memory` | `/android-native-tester memory com.example.app` | Repeats flows and watches live Activities, Views and memory per cycle to find leaks (Android only for now) |
+| `explore` | "Explore com.example.app for 30 minutes" | Time-boxed exploratory testing guided by a charter, the app's main flows and rules |
+| `test-case` | "Run the test cases in tests/TC-001.md" | Runs written test cases step by step and reports pass, fail or blocked per step |
+| `repro` | "Reproduce PROJ-123" | Reproduces a reported bug, narrows the trigger one variable at a time, confirms with a person |
+| `ui-review` | "Review the UI and accessibility of the checkout screens" | Accessibility (touch targets, labels, contrast, screen-reader text) and visual review |
+| `retest` | "Check what's fixed in build 2.4" | Runs the regression test cases of the app's open known issues on a new build and marks each Fixed, Still reproduces or Can't verify |
+| `memory` | "Check the product screens for memory leaks" | Repeats flows and watches live Activities, Views and memory per cycle to find leaks (Android only for now) |
 
 On Android, the app's own log is checked after each action (errors, caught exceptions, network failures, out of memory), and memory is sampled every 10 actions; both end up in the report.
 On iOS, the app's unified log is recorded with the session and every action checks for a new crash report.
 
 ### After the session
 
-- **Confirm findings by hand.** Tell Claude "B3 reproduced 2 of 2 on my phone" (or run `adt report confirm` / `idt report confirm`): the finding gets a history entry, its manual count and status update, and the report is rebuilt.
+- **Confirm findings by hand.** Tell the agent "B3 reproduced 2 of 2 on my phone" (or run `adt report confirm` / `idt report confirm`): the finding gets a history entry, its manual count and status update, and the report is rebuilt.
 - **Known issues.** Every bug lands in the app's known-issues registry with a regression test case draft. Later sessions link a known bug found again ("K-3 seen again") instead of reporting it as new, and reopen fixed issues that come back.
 - **Crashes and performance.** A crash is caught at the action that caused it. On Android each session also records cold start time, janky frames and memory, so a slower build shows up in the report.
 
-If the short name clashes with another command, use the namespaced form `/mobile-tester:android-native-tester` or `/mobile-tester:ios-native-tester`.
+In Claude Code, if the short name clashes with another command, use the namespaced form `/mobile-tester:android-native-tester` or `/mobile-tester:ios-native-tester`.
 
 ## What a session produces
 
@@ -382,7 +390,7 @@ Add `.mobile-tester/state/` and `.mobile-tester/**/secrets.local.yaml` to your `
 
 ## Human-like input in detail
 
-| A person | Raw adb | This plugin (`adt`, default) |
+| A person | Raw adb | Mobile Tester (`adt`, default) |
 |---|---|---|
 | Presses for about 100 ms | `input tap`: 0 ms | 60-150 ms press (`input swipe` held in place) |
 | Hits near the middle, never the same pixel twice | The exact center | Random point near the center, avoiding anything that covers the element |
@@ -415,7 +423,7 @@ The CLI also refuses to tap elements labelled like payment, messaging or account
 ## The `adt` and `idt` command-line tools
 
 The skills drive everything through `adt` (Android) and `idt` (iOS), two small Python tools in `scripts/` with the same command names where the platforms allow.
-Installed as a command (see "Install in other agents"):
+Installed as a command (see "Install in any agent"):
 
 ```bash
 adt doctor
@@ -461,6 +469,8 @@ uv run --group dev ruff check scripts tests
 ```bash
 claude plugin validate .
 ```
+
+The last one checks the Claude Code plugin manifest in `.claude-plugin/`.
 
 The design decisions are in [docs/spec.md](docs/spec.md).
 The tests use real UI dumps captured from devices and simulators as fixtures.

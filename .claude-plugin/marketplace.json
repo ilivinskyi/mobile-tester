@@ -1,6 +1,6 @@
 {
   "name": "mobile-tester",
-  "description": "Mobile Tester: human-like testing of Android and iOS apps from Claude Code.",
+  "description": "Mobile Tester: human-like testing of Android and iOS apps by an AI agent.",
   "owner": {
     "name": "Ihor Livinskyi"
   },
@@ -8,7 +8,7 @@
     {
       "name": "mobile-tester",
       "source": "./",
-      "description": "Exploratory, test-case, bug-repro and UI-review sessions on Android devices and iOS simulators, driven like a person, with one standard QA report."
+      "description": "Exploratory, test-case, bug-repro and UI-review sessions on Android phones and emulators, iOS simulators, iPhones and iPads, driven like a person, with one standard QA report."
     }
   ]
 }

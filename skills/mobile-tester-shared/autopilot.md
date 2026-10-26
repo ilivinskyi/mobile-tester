@@ -7,7 +7,8 @@ Autopilot only skips the skill's own routine questions; whether the agent may wr
 When a tool call is blocked by those permissions, say so plainly and don't call it an autopilot problem.
 
 With `autopilot.enabled: true` in `.mobile-tester/config.yaml`, the skill applies the defaults below instead of stopping to ask.
-Every decision taken automatically is written to the session's `logs/decisions.md` (time, decision, value, why it came up), so the report can show what was decided without the user.
+Record every decision taken automatically with `dt report decision RUN KEY VALUE --why "<what made it come up>"`.
+It goes to `session.json` (listed under "Decided by autopilot" in the report's session details) and to the session's `logs/decisions.md`, so the report shows what was decided without the user.
 With autopilot off, the skill asks at each of these points.
 
 ## Decision catalog

@@ -52,7 +52,7 @@ Memory mode is Android only for now: offer explore mode on the same flows instea
 4. Hooks: run `idt hook setup --package BUNDLE` when the profile defines it.
 5. Start the session: `idt session start --package BUNDLE --mode MODE --charter "..." [--ticket KEY] --record --log` (on a device there is no app log yet: it says so, and `logs/app.log` stays absent; write that in `not_covered`).
    Without `--dir` the run folder is `<reports dir from config.yaml>/<YYYY-MM-DD>-<app>-<mode>[-<ticket>]`, a new one per session; it prints the folder.
-   It also fills the title, the tester, the platform and the device from the profile, config and simulator or device. Then set ticket details, time box and app install source with `idt report set RUN ...` (session.json) (see [report-standard.md](../mobile-tester-shared/report-standard.md)).
+   It also fills the title, the tester, the platform and the device from the profile, config and simulator or device. Then set the ticket, the time box and where the build came from with `idt report set RUN ticket|time_box_min|install_source VALUE` (see [report-standard.md](../mobile-tester-shared/report-standard.md)).
 6. Bring the app to the start state (below). This also logs in when the profile's login needs it.
 
 ### Start state
@@ -69,7 +69,7 @@ Use the strategy agreed in the interview (default: the profile's `reset.strategy
 
 Built-in apps can't be reinstalled: for them `clear-data` is not available, use `restart` or a hook and say so in `not_covered`.
 Then do the profile's `reset.after` steps with `--fast`, and check the state you depend on with `idt observe --image-only` before the first step under test.
-`idt app reset` adds itself to `setup_steps_fast`; add the other setup steps you ran yourself.
+`idt app reset` adds itself to `setup_steps_fast`; add the other setup steps you ran yourself with `idt report add RUN setup_steps_fast "<step>"`.
 "the app is not in the foreground" after a reset usually means a system alert (permissions, notifications) is on top: `idt observe` shows it, answer it as `app_permission_prompts` says, as part of the setup.
 
 ### 4. Testing
@@ -109,7 +109,9 @@ While testing:
 1. `idt session end`: it stops the recording and the app log, and builds the report right away when `idt report check` passes (otherwise it lists what to fix). Run the teardown hook if the profile has one.
 2. Cut one clip per bug: `idt clip --from <t of first repro step> --to <t of last> --out RUN/videos/<id>.mp4`, and add it to the finding's evidence.
 3. `idt issues sync RUN --package BUNDLE`: new bugs and accessibility findings join the app's known issues (each with a regression test case draft in `.mobile-tester/apps/<bundle id>/tests/`), and known issues seen again get a sighting.
-4. `idt report check RUN`, fix every problem, then `idt report build RUN` (again: the steps above changed findings). Open `index.html` in a browser (the browser pane in Claude Code) and look at it; in autopilot `report_build` decides, and it never waits for a question.
+4. `idt report check RUN`, fix every problem, then `idt report telemetry RUN`: it records the technical data (agent tokens and cost, time per phase, tool and device activity) in `session.json`, adds a row to `<reports dir>/telemetry.csv` and rebuilds the report.
+   It reads the newest Claude Code transcript of the project; in another agent pass `--transcript` if it keeps a compatible one, otherwise the report says tokens weren't collected.
+   Open `index.html` in a browser (the browser pane in Claude Code) and look at it; in autopilot `report_build` decides, and it never waits for a question.
 5. For each Unconfirmed finding, offer the manual reproduction in [modes/repro.md](../mobile-tester-shared/modes/repro.md): on a simulator the person clicks in Simulator.app, on a device they use it by hand.
 6. Offer Jira: each finding page has Copy title and Copy for Jira buttons, the `bugs/<id>.md` files are paste-ready, and `findings.csv` imports them all through Jira's CSV import. Create issues through the Atlassian connector only when the user explicitly approves each one.
 7. Append what you learned about the app (screen map, quirks) to the app's `notes.md`, after telling the user.

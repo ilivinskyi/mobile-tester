@@ -136,6 +136,8 @@ def environment(session: dict) -> list[tuple[str, str]]:
         ("Locale", dev.get("locale")),
         ("Input", session.get("input")),
         ("Setup steps run fast", ", ".join(session.get("setup_steps_fast", [])) or None),
+        ("Decided by autopilot", "; ".join(f"{d['key']} = {d['value']}" + (f" ({d['why']})" if d.get("why") else "")
+                                           for d in session.get("decisions", [])) or None),
     ]
     return [(k, str(v)) for k, v in rows if v]
 
@@ -199,6 +201,74 @@ def performance_rows(performance: dict) -> list[tuple[str, str]]:
                             for k, values in leak.get("growing", {}).items())
         rows.append((f"Leak check: {flow}", f"{leak['verdict'].capitalize()} after {leak['cycles']} cycles"
                                             + (f" ({growing})" if growing else "")))
+    return [(k, v) for k, v in rows if v]
+
+
+def _tokens_text(t: dict) -> str:
+    total = sum(t.get(k, 0) for k in ("input", "output", "cache_read", "cache_write_5m", "cache_write_1h"))
+    writes = t.get("cache_write_5m", 0) + t.get("cache_write_1h", 0)
+    return (f"{total:,} in {t.get('requests', 0)} requests: {t.get('output', 0):,} output "
+            f"({t.get('thinking', 0):,} thinking), {t.get('input', 0):,} input, "
+            f"{t.get('cache_read', 0):,} cache read, {writes:,} cache write")
+
+
+def _usd(value) -> str:
+    return "unknown" if value is None else f"${value:,.2f}"
+
+
+def technical_rows(tech: dict) -> list[tuple[str, str]]:
+    """The report's "Technical data" table: how the run was produced, for tracking the skill over time."""
+    if not tech:
+        return []
+    rows = []
+    agent = tech.get("agent") or {}
+    rows.append(("Agent", " ".join(filter(None, [agent.get("name"), agent.get("version")]))
+                 + (f"; {', '.join(agent['models'])}" if agent.get("models") else "")
+                 + (f", effort {agent['effort']}" if agent.get("effort") else "")
+                 + (f", output style {agent['output_style']}" if agent.get("output_style") else "")
+                 + (f" ({agent['note']})" if agent.get("note") else "")))
+    if m := tech.get("minutes"):
+        parts = [f"{label} {m[key]} min" for key, label in
+                 (("onboarding", "onboarding and interview"), ("session", "test session"), ("wrap_up", "wrap-up"))
+                 if m.get(key) is not None]
+        total = f"{m['total']} min in total" if m.get("total") is not None else ""
+        rows.append(("Duration", total + (": " if total and parts else "") + ", ".join(parts)))
+    if t := tech.get("tokens"):
+        rows.append(("Tokens", _tokens_text(t)))
+        reads = t.get("cache_read", 0)
+        prompt = reads + t.get("input", 0) + t.get("cache_write_5m", 0) + t.get("cache_write_1h", 0)
+        if prompt:
+            rows.append(("Prompt cache", f"{round(100 * reads / prompt)}% of input tokens read from cache; "
+                                         f"largest context {tech.get('peak_context', 0):,} tokens"))
+    if c := tech.get("cost_usd"):
+        text = f"{_usd(c.get('total'))} at {c.get('basis', 'API list prices')} as of {c.get('prices_as_of')}"
+        if len(c.get("by_model") or {}) > 1:
+            text += " (" + ", ".join(f"{k} {_usd(v)}" for k, v in c["by_model"].items()) + ")"
+        if c.get("unpriced_models"):
+            text += f"; no price for {', '.join(c['unpriced_models'])}"
+        rows.append(("Cost", text))
+    for phase, tokens in (tech.get("tokens_by_phase") or {}).items():
+        cost = ((tech.get("cost_usd") or {}).get("by_phase") or {}).get(phase)
+        rows.append((f"Phase: {phase.replace('_', '-')}", f"{_usd(cost)}; {_tokens_text(tokens)}"))
+    if calls := tech.get("tool_calls"):
+        top = ", ".join(f"{name} {n}" for name, n in list(calls.items())[:6])
+        rows.append(("Agent tool calls", f"{sum(calls.values())} ({top}); {tech.get('tool_errors', 0)} failed; "
+                                         f"{tech.get('user_turns', 0)} user messages"))
+    if a := tech.get("device_actions"):
+        top = ", ".join(f"{name} {n}" for name, n in list((a.get("by_action") or {}).items())[:6])
+        modes = ", ".join(f"{mode} {n}" for mode, n in (a.get("by_mode") or {}).items()) \
+            or f"fast {a.get('fast', 0)}"
+        rows.append(("Device actions", f"{a.get('total', 0)} ({top}); by input mode: {modes}; "
+                                       f"{a.get('no_visible_change', 0)} with no visible change; "
+                                       f"{a.get('device_time_min', 0)} min on the device"))
+    if "autopilot_decisions" in tech:
+        rows.append(("Autopilot decisions", str(tech["autopilot_decisions"])))
+    if art := tech.get("artifacts"):
+        rows.append(("Evidence size", f"{art.get('screenshots', 0)} screenshots ({art.get('screenshots_mb', 0)} MB), "
+                                      f"videos {art.get('videos_mb', 0)} MB, "
+                                      f"run folder {art.get('run_folder_mb', 0)} MB"))
+    if tech.get("collected"):
+        rows.append(("Collected", tech["collected"]))
     return [(k, v) for k, v in rows if v]
 
 

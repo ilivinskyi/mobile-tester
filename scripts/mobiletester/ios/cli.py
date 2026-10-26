@@ -465,8 +465,9 @@ def cmd_open(args, dev: Device) -> int:
         dev.remember_app(args.package)
     time.sleep(1.5)
     print(f"opened {args.uri}")
-    obs = device.observe(dev, bundle_id=args.package, save_dir=_session_shots(dev))
-    _print_observation(obs, as_json=False, previous=commands.previous_elements(before, obs.fingerprint))
+    if not args.no_observe:
+        obs = device.observe(dev, bundle_id=args.package, save_dir=_session_shots(dev))
+        _print_observation(obs, as_json=False, previous=commands.previous_elements(before, obs.fingerprint))
     print("next: go back (left-edge swipe or the app's back button) and check where it goes; then `idt crashes`")
     return EXIT_OK
 
@@ -976,6 +977,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_open.add_argument("uri")
     p_open.add_argument("--package", help="bundle id of the app that should handle it")
     p_open.add_argument("--cold", action="store_true", help="stop the app first, to open the link from a cold start")
+    p_open.add_argument("--no-observe", action="store_true", help="don't list the screen where the link landed")
     for name in ("launch", "stop", "uninstall", "info"):
         ap = app.add_parser(name)
         ap.add_argument("package", help="bundle id")

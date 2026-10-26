@@ -57,3 +57,27 @@ def test_session_fields(run):
     data = json.loads((run / "session.json").read_text(encoding="utf-8"))
     assert data["summary"] == "All main flows work." and data["time_box_min"] == 30
     assert data["not_covered"] == ["Payments", "Sync"]
+
+
+def test_ticket_install_source_and_fast_steps(run):
+    (run / "session.json").write_text('{"mode": "explore", "app": {"package": "com.example.notes"}}', encoding="utf-8")
+    assert main(["report", "set", str(run), "ticket", "PROJ-12"]) == 0
+    assert main(["report", "set", str(run), "install_source", "Play Store"]) == 0
+    assert main(["report", "add", str(run), "setup_steps_fast", "clear data", "skip intro"]) == 0
+    data = json.loads((run / "session.json").read_text(encoding="utf-8"))
+    assert data["ticket"] == "PROJ-12"
+    assert data["app"] == {"package": "com.example.notes", "install_source": "Play Store"}
+    assert data["setup_steps_fast"] == ["clear data", "skip intro"]
+
+
+def test_autopilot_decision_is_logged_for_people_and_the_report(run, capsys):
+    assert main(["report", "decision", str(run), "consent_banners", "reject_non_essential",
+                 "--why", "cookie banner on first launch"]) == 0
+    assert main(["report", "decision", str(run), "app_permission_prompts", "deny", "--why", "notifications"]) == 0
+    data = json.loads((run / "session.json").read_text(encoding="utf-8"))
+    assert [(d["key"], d["value"]) for d in data["decisions"]] == [
+        ("consent_banners", "reject_non_essential"), ("app_permission_prompts", "deny")]
+    assert all(d["time"] for d in data["decisions"])
+    log = (run / "logs" / "decisions.md").read_text(encoding="utf-8").splitlines()
+    assert len(log) == 2 and log[0].startswith("- ") and "consent_banners = reject_non_essential" in log[0]
+    assert "cookie banner on first launch" in log[0]

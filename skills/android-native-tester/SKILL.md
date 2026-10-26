@@ -42,7 +42,7 @@ End with a one-paragraph session plan (charter, mode, device, build, start state
 4. Hooks: run `adt hook setup --package PKG` when the profile defines it.
 5. Start the session: `adt session start --package PKG --mode MODE --charter "..." [--ticket KEY] --record --logcat`.
    Without `--dir` the run folder is `<reports dir from config.yaml>/<YYYY-MM-DD>-<app>-<mode>[-<ticket>]`, a new one per session; it prints the folder.
-   It also fills the title and the tester from the profile and config. Then set ticket details, time box and app install source with `adt report set RUN ...` (session.json) (see [report-standard.md](../mobile-tester-shared/report-standard.md)).
+   It also fills the title and the tester from the profile and config. Then set the ticket, the time box and where the build came from with `adt report set RUN ticket|time_box_min|install_source VALUE` (see [report-standard.md](../mobile-tester-shared/report-standard.md)).
 6. Ask whether to turn on "Show taps" for this recording (always ask; on a phone pass the approval to `adt touches on --approval`).
 7. Performance baseline (unless the user turned it off): `adt perf startup PKG` (three cold starts, each after a force-stop), then `adt perf frames PKG --reset`.
 8. Bring the app to the start state (below). This also logs in when the profile's login needs it.
@@ -60,7 +60,7 @@ Use the strategy agreed in the interview (default: the profile's `reset.strategy
 | `none` | nothing; check the state the user prepared |
 
 Then do the profile's `reset.after` steps with `--fast`, and check the state you depend on with `adt observe --image-only` before the first step under test.
-`adt app reset` adds itself to `setup_steps_fast`; add the other setup steps you ran yourself.
+`adt app reset` adds itself to `setup_steps_fast`; add the other setup steps you ran yourself with `adt report add RUN setup_steps_fast "<step>"`.
 "a system permission dialog is on top" after a reset: answer it as `app_permission_prompts` says, as part of the setup.
 Clearing app data on a personal device needs the user's yes from the interview; without it, fall back to `restart` and say so in `not_covered`.
 
@@ -103,7 +103,9 @@ While testing:
 2. `adt session end`: it stops capture and builds the report right away when `adt report check` passes (otherwise it lists what to fix). Run the teardown hook if the profile has one, and `adt touches off` if you turned it on.
 3. Cut one clip per bug: `adt clip --from <t of first repro step> --to <t of last> --out videos/<id>.mp4`, and add it to the finding's evidence.
 4. `adt issues sync RUN --package PKG`: new bugs and accessibility findings join the app's known issues (each with a regression test case draft in `.mobile-tester/apps/<package>/tests/`), and known issues seen again get a sighting.
-5. `adt report check RUN`, fix every problem, then `adt report build RUN` (again: the steps above changed findings). Open `index.html` in a browser (the browser pane in Claude Code) and look at it; in autopilot `report_build` decides, and it never waits for a question.
+5. `adt report check RUN`, fix every problem, then `adt report telemetry RUN`: it records the technical data (agent tokens and cost, time per phase, tool and device activity) in `session.json`, adds a row to `<reports dir>/telemetry.csv` and rebuilds the report.
+   It reads the newest Claude Code transcript of the project; in another agent pass `--transcript` if it keeps a compatible one, otherwise the report says tokens weren't collected.
+   Open `index.html` in a browser (the browser pane in Claude Code) and look at it; in autopilot `report_build` decides, and it never waits for a question.
 6. For each Unconfirmed finding, offer the manual reproduction in [modes/repro.md](../mobile-tester-shared/modes/repro.md).
 7. Offer Jira: each finding page has Copy title and Copy for Jira buttons, the `bugs/<id>.md` files are paste-ready, and `findings.csv` imports them all through Jira's CSV import. Create issues through the Atlassian connector only when the user explicitly approves each one.
 8. Append what you learned about the app (screen map, quirks) to the app's `notes.md`, after telling the user.

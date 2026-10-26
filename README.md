@@ -348,6 +348,8 @@ The tools also cover what manual QA always checks:
 - **Config and network:** `env` (dark mode, font or text size, orientation, RTL) and `adt net offline|online`; every changed setting is restored at `session end`.
 - **OS handoffs:** notifications, gallery media, clipboard, location and Face ID / Touch ID / fingerprint, where the platform allows it (some only on emulators and simulators).
 - **Build comparison:** `report diff RUN_A RUN_B` compares two runs: performance, new findings, issues gone, new log errors, screens reached.
+- **Technical data:** `report telemetry RUN` records how a run was produced: agent tokens and cost at API list prices (from the Claude Code transcript), time per phase, tool calls, device actions and evidence size.
+  It is shown at the end of the report, and every run adds a row to `<reports dir>/telemetry.csv`, so the skill's cost and speed can be tracked over time.
 On iOS, the app's unified log is recorded with the session and every action checks for a new crash report.
 
 ### After the session

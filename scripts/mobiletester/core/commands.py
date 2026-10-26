@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from . import diff, findings, lifecycle, report, ui
+from . import diff, findings, lifecycle, report, telemetry, ui
 from .state import PROJECT_DIR
 
 EXIT_OK, EXIT_USAGE, EXIT_DEVICE, EXIT_NOT_FOUND, EXIT_BLOCKED, EXIT_DECISION = 0, 2, 3, 4, 5, 6
@@ -98,6 +98,12 @@ def cmd_report(args) -> int:
     if args.report_cmd == "diff":
         print("\n".join(diff.compare(Path(args.dir), Path(args.other))))
         return EXIT_OK
+    if args.report_cmd == "telemetry":
+        return _report_telemetry(args)
+    if args.report_cmd == "decision":
+        entry = findings.record_decision(Path(args.dir), args.key, args.value, args.why or "")
+        print(f"decision {entry['key']} = {entry['value']} logged at {entry['time']}")
+        return EXIT_OK
     run = Path(args.dir)
     problems = report.check(run)
     if args.report_cmd == "check" or problems:
@@ -148,6 +154,31 @@ def _report_fields(args) -> int:
         print(f"error: {exc}")
         return EXIT_USAGE
     print(f"session.json: {args.field} updated")
+    return EXIT_OK
+
+
+def _report_telemetry(args) -> int:
+    run = Path(args.dir)
+    transcript = Path(args.transcript) if args.transcript else telemetry.claude_code_transcript(Path.cwd())
+    since, until = (datetime.fromtimestamp(parse_time(v)).astimezone() if v else None
+                    for v in (args.since, args.until))
+    tech = telemetry.collect(run, transcript, since, until)
+    session = json.loads((run / "session.json").read_text(encoding="utf-8"))
+    session["technical"] = tech
+    findings.write_json(run / "session.json", session)
+    history = run.parent / "telemetry.csv"
+    telemetry.append_history(history, telemetry.history_row(run, session, tech))
+    cost = (tech.get("cost_usd") or {}).get("total")
+    tokens = tech.get("tokens") or {}
+    print(f"agent: {tech['agent'].get('name')} {tech['agent'].get('version', '')}"
+          + (f", transcript {transcript}" if transcript else ""))
+    if tokens:
+        print(f"tokens: {tokens.get('requests', 0)} requests, {tokens.get('output', 0):,} output, "
+              f"{tokens.get('cache_read', 0):,} cache read; cost {'unknown' if cost is None else f'${cost:.2f}'}")
+    print(f"session.json: technical updated; history row in {history}")
+    if (run / "index.html").exists():
+        report.build(run)
+        print("report rebuilt")
     return EXIT_OK
 
 
@@ -205,10 +236,22 @@ def add_parsers(sub, common: argparse.ArgumentParser) -> None:
     rp = rep.add_parser("diff", help="compare two runs (e.g. two builds): performance, findings, app log, screens")
     rp.add_argument("dir", help="run A (before)")
     rp.add_argument("other", help="run B (after)")
-    rp = rep.add_parser("set", help="set a session.json field: " + ", ".join(findings.SESSION_TEXT
-                                                                              + findings.SESSION_INT))
+    rp = rep.add_parser("decision", help="log a decision autopilot took (logs/decisions.md and the report)")
     rp.add_argument("dir")
-    rp.add_argument("field", choices=list(findings.SESSION_TEXT + findings.SESSION_INT))
+    rp.add_argument("key", help="decision key from autopilot.md, e.g. consent_banners")
+    rp.add_argument("value", help="what was chosen, e.g. reject_non_essential")
+    rp.add_argument("--why", help="what made it come up, e.g. 'cookie banner on first launch'")
+    rp = rep.add_parser("telemetry", help="record technical data (agent tokens and cost, time per phase, activity) "
+                                          "in session.json and <reports dir>/telemetry.csv, then rebuild")
+    rp.add_argument("dir")
+    rp.add_argument("--transcript", help="agent transcript (default: the newest Claude Code transcript of this "
+                                         "project folder)")
+    rp.add_argument("--since", help="count from this time (ISO, HH:MM:SS or epoch; default: transcript start)")
+    rp.add_argument("--until", help="count up to this time (default: now)")
+    settable = findings.SESSION_TEXT + findings.SESSION_INT + findings.SESSION_APP
+    rp = rep.add_parser("set", help="set a session.json field: " + ", ".join(settable))
+    rp.add_argument("dir")
+    rp.add_argument("field", choices=list(settable))
     rp.add_argument("value")
     rp = rep.add_parser("add", help="add items to a session.json list: " + ", ".join(findings.SESSION_LISTS))
     rp.add_argument("dir")

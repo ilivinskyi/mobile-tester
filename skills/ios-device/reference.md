@@ -89,7 +89,7 @@ Taps on an element go to a random point near its center that no other control co
 | `app install PATH.app [--allow-risk "APPROVAL"]` | a simulator build on a simulator, a signed device build on a device (a mix-up is refused); `.ipa`: unzip it and install `Payload/<name>.app`. On a personal device needs `--allow-risk` |
 | `app uninstall BUNDLE [--allow-risk "APPROVAL"]` | on a personal device needs `--allow-risk` |
 | `app links BUNDLE [--app PATH]` | URL schemes (Info.plist) and Universal Link domains (entitlements, via codesign); on a device pass the `.app` |
-| `open URI [--package BUNDLE] [--cold]` | open a URL scheme, Universal Link or callback (simulators), then show the screen; `--cold` stops the app first |
+| `open URI [--package BUNDLE] [--cold] [--no-observe]` | open a URL scheme, Universal Link or callback (simulators), then show the screen (not with `--no-observe`); `--cold` stops the app first |
 | `permissions grant\|revoke\|reset BUNDLE [SERVICE...]` | simulators: `calendar contacts location location-always photos photos-add media-library microphone motion reminders siri` (default `all`). Camera and notifications can't be set: reinstall to see those prompts again |
 | `env [--dark on\|off] [--text-size SIZE] [--reset]` | simulators: appearance and Dynamic Type size (`extra-small` ... `accessibility-extra-extra-extra-large`); restored by `env --reset` or `session end` |
 | `media add FILE` / `clipboard get\|set TEXT` / `location LAT LON\|--clear` / `bio enroll\|match\|fail` | simulators: Photos, clipboard, simulated location, Face ID / Touch ID |

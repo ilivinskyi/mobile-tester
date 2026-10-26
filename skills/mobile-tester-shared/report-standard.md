@@ -35,12 +35,14 @@ RUN/
 | `device` *(checked)* | written by `dt session start`: `model`, `os` ("Android 15 (API 35)", "iOS 27.0"), `kind` (physical, emulator, simulator), `screen`, `navigation`, `keyboard`, `locale`, plus the platform's raw facts |
 | `app` *(checked)* | `package` (bundle id on iOS), `versionName` and `versionCode` (on iOS the marketing version and the build number), plus `install_source` ("Play Store", "file Foo.xapk, signer verified", "simulator build of ...") |
 | `input` | how input was driven; `dt session start` writes "adt human mode" or "idt human mode (XCUITest touches)" |
-| `setup_steps_fast` | steps run with `--fast`, e.g. `["install", "clear data"]` |
+| `setup_steps_fast` | steps run with `--fast`, e.g. `["install", "clear data"]`; `dt app reset` adds itself, the rest via `dt report add RUN setup_steps_fast` |
+| `decisions` | autopilot decisions, written by `dt report decision`: `[{"time", "key", "value", "why"}]`; shown in the session details |
 | `summary` | 3-5 sentences: overall state, the most serious problems, what needs attention |
 | `test_results` | test-case mode: `[{"case", "step", "result": pass/fail/blocked/skipped, "finding", "note"}]`; fail/blocked need a finding or note *(checked)*. Retest mode adds `"issue": "K-n"`; the report then reads pass as Fixed, fail as Still reproduces, blocked as Can't verify |
 | `performance` | Android: written by `adt perf`: `startup` (cold start median and samples), `frames` (janky %, percentiles), `memory` (PSS, RSS, live Activities, Views and other objects), `memory_trend` (a sample every 10 actions), `leak_samples` and `leaks` (memory mode: verdict per flow) |
 | `log_summary` | Android: written by `adt logcat summary`: the app's errors and warnings in the session log, grouped (kind, tag, text, count, first time); shown as "App log" |
 | `worked_well`, `coverage`, `not_covered` | lists of short sentences; `not_covered` is required reading for the reader, always fill it |
+| `technical` | written by `dt report telemetry`: `agent` (name, version, models, effort, output style), `minutes` (total, onboarding, session, wrap_up), `tokens` and `tokens_by_model` / `tokens_by_phase` (requests, input, output, thinking, cache_read, cache_write_5m, cache_write_1h), `peak_context`, `cost_usd` (API list prices, by model and phase), `tool_calls`, `tool_errors`, `user_turns`, `device_actions`, `autopilot_decisions`, `findings`, `artifacts`; shown last as "Technical data", and one row per run goes to `<reports dir>/telemetry.csv` |
 | `evidence` | `{"session_video": "videos/session.mp4", "logcat": "logs/logcat.txt" (or `"app_log": "logs/app.log"` on iOS), "action_log": "logs/actions.jsonl"}` |
 
 ## findings.json

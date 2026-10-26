@@ -467,8 +467,9 @@ def cmd_open(args, adb: Adb) -> int:
     screen.wait_stable(lambda: adb.exec_out("screencap", "-p", timeout=20), timeout=8)
     if crash_lines := capture.new_crashes(adb):
         print(f"CRASH after opening the link: {capture.crash_summary(crash_lines)}. Capture evidence now.")
-    obs = device.observe(adb, save_dir=_session_shots(adb))
-    _print_observation(obs, as_json=False, previous=commands.previous_elements(before, obs.fingerprint))
+    if not args.no_observe:
+        obs = device.observe(adb, save_dir=_session_shots(adb))
+        _print_observation(obs, as_json=False, previous=commands.previous_elements(before, obs.fingerprint))
     print("next: press back and check where it goes (an empty back stack should leave the app, not show a blank "
           "or wrong screen)")
     return EXIT_OK
@@ -940,6 +941,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("uri", help="e.g. myapp://checkout/return?status=ok or https://example.com/item/42")
     p.add_argument("--package", help="the app that should handle it (otherwise Android picks or asks)")
     p.add_argument("--cold", action="store_true", help="stop the app first, to open the link from a cold start")
+    p.add_argument("--no-observe", action="store_true", help="don't list the screen where the link landed")
 
     p = sub.add_parser("permissions", help="the app's runtime permissions: list, grant, revoke, reset")
     perm = commands.subparsers(p, common, dest="perm_cmd", required=True)

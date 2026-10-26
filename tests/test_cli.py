@@ -13,6 +13,11 @@ from mobiletester.android import cli as adt
     ["tap", "--text", "OK", "--fast"],
     ["--fast", "app", "reset", "com.example", "--level", "clear-data"],
     ["session", "start", "--package", "com.example", "--mode", "explore", "--record"],
+    ["open", "https://example.com/item/42", "--package", "com.example", "--cold", "--no-observe"],
+    ["report", "telemetry", "RUN", "--until", "23:57:19"],
+    ["report", "decision", "RUN", "consent_banners", "reject_non_essential", "--why", "cookie banner"],
+    ["report", "set", "RUN", "install_source", "Play Store"],
+    ["report", "add", "RUN", "setup_steps_fast", "clear data"],
 ])
 def test_adt_parses(argv):
     args = adt.build_parser().parse_args(argv)
@@ -32,6 +37,8 @@ def test_adt_issues_default_to_the_project_folder():
     ["runner", "start"],
     ["type", "Run 5k", "--submit"],
     ["log", "start", "--out", "x.log", "--package", "com.github.aint.Habits"],
+    ["open", "habits://today", "--no-observe"],
+    ["report", "telemetry", "RUN"],
 ])
 def test_idt_parses(argv):
     from mobiletester.ios import cli as idt

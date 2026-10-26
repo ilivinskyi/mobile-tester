@@ -22,6 +22,7 @@ from .report_text import (
     repro,
     seen_again,
     summary,
+    technical_rows,
 )
 
 
@@ -689,6 +690,9 @@ def render_index(session: dict, findings: list[dict], csv: bool = False) -> str:
     body.append(f'<details class="more"><summary>Session details</summary>{_table(environment(session))}'
                 + (f'<p class="sub" style="margin-top:10px">Session evidence: {links}</p>' if links else "")
                 + "</details>")
+    if tech := technical_rows(session.get("technical") or {}):
+        body.append('<h2>Technical data</h2><p class="sub">How this report was produced, for tracking the testing '
+                    f'skill over time. Every run adds a row to telemetry.csv in the reports folder.</p>{_table(tech)}')
     body.append(_HELP)
     return _page(session.get("title", "Test report"), "".join(body), _INDEX_JS)
 

@@ -1,19 +1,26 @@
 import io
 import struct
 import zipfile
-from pathlib import Path
 
+from binxml import binary_xml
 from mobiletester.android import apkinfo
 
-FIXTURES = Path(__file__).parent / "fixtures"
 
-
-def test_parse_real_binary_manifest():
-    manifest, permissions = apkinfo.parse_manifest((FIXTURES / "jumbo_AndroidManifest.axml").read_bytes())
-    assert manifest["package"] == "com.icemobile.jumboclient"
-    assert manifest["versionName"] == "39.0.0" and manifest["versionCode"] == 1790761267
-    assert "android.permission.CAMERA" in permissions
+def test_parse_binary_manifest():
+    axml = binary_xml([
+        ("manifest", {"versionCode": 420, "versionName": "4.2.0", "package": "com.example.pantry"}),
+        ("uses-permission", {"name": "android.permission.CAMERA"}),
+        ("uses-permission", {"name": "android.permission.INTERNET"}),
+        ("application", {"label": "Pantry"}),
+        ("service", {"name": ".SyncService", "permission": "android.permission.BIND_JOB_SERVICE"}),
+    ])
+    manifest, permissions = apkinfo.parse_manifest(axml)
+    assert manifest["package"] == "com.example.pantry"
+    assert manifest["versionName"] == "4.2.0" and manifest["versionCode"] == 420
+    assert permissions == ["android.permission.BIND_JOB_SERVICE", "android.permission.CAMERA",
+                           "android.permission.INTERNET"]
     assert not set(permissions) & apkinfo.NOTABLE_PERMISSIONS
+    assert apkinfo.application_label(axml) == "Pantry"
 
 
 def _prefixed(data: bytes) -> bytes:

@@ -90,7 +90,7 @@ Exit codes: 4 not found or covered, 5 guardrail block, 6 decision needed (e.g. a
   Video only where Xcode offers recording for the device (`note: no recording` at session start otherwise, e.g. on an iPhone 15 Pro Max): screenshots are the evidence then.
   `.ipa` files must be unzipped to the `.app` inside first.
 - Typing needs Apple's keyboard. With a third-party keyboard (Grammarly, Gboard, ...) `type` stops with `DECISION NEEDED`: ask the user to switch keyboards with the globe key, or to type the text themselves.
-- The guardrail classifier knows English labels only: on a Dutch app "Toevoegen aan mandje" (add to basket) is not marked `RISK`; judge such buttons yourself.
+- The guardrail classifier knows English labels only: in an app in another language, a label like "Ajouter au panier" (add to basket) is not marked `RISK`; judge such buttons yourself.
 - Over Wi-Fi a device is slower than over USB: every action takes screenshots through the tunnel.
 - Each key press takes about half a second (XCUITest waits for the app to go idle), so long texts type slowly.
 - Typing knows the keys on the letter, number and symbol layers; accented letters (long press) and other keyboard languages stop with a decision.

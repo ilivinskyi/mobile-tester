@@ -95,7 +95,7 @@ def test_untypable_chars_fail_before_typing(fixture_xml):
 
 
 def test_no_keyboard_visible(fixture_xml):
-    xml = fixture_xml("jumbo_search_results.xml")
+    xml = fixture_xml("pantry_search_results.xml")
     with pytest.raises(keyboard.NoKeyboard):
         keyboard.Typist(lambda: xml, lambda k: None, IME).type("a")
 

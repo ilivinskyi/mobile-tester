@@ -1,4 +1,4 @@
-"""Measure how big `adt observe` / `idt observe` element listings are, on the real UI dumps in tests/fixtures.
+"""Measure how big `adt observe` / `idt observe` element listings are, on the UI dumps in tests/fixtures.
 
 Run from the repo root: `uv run python scripts/measure_observe.py`. Tokens are estimated as characters / 4.
 """
@@ -15,8 +15,9 @@ from mobiletester.ios import hierarchy as ios  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent.parent / "tests" / "fixtures"
 # Pairs of dumps of one screen before and after a step on it.
-SAME_SCREEN = [("jumbo_stepper_no_keyboard.xml", "jumbo_stepper.xml"), ("jumbo_home.xml", "jumbo_home_with_card.xml"),
-               ("jumbo_search_results.xml", "jumbo_search_with_basket.xml")]
+SAME_SCREEN = [("pantry_search_results.xml", "pantry_stepper_no_keyboard.xml"),
+               ("pantry_home.xml", "pantry_home_with_card.xml"),
+               ("pantry_stepper_no_keyboard.xml", "pantry_search_with_basket.xml")]
 
 
 def listing(elements) -> str:

@@ -1,6 +1,6 @@
 # Mobile Tester Skills - Spec
 
-Decisions from the initial interview (2026-10-23), revised after the Jumbo session and the B8 investigation the same day.
+Decisions from the initial interview (2026-10-23), revised after the first exploratory session on a real app and an investigation of a bug only automation could reproduce.
 
 ## Scope
 

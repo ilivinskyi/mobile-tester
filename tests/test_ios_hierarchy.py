@@ -136,7 +136,7 @@ def _grammarly_tree() -> dict:
 
 
 def test_a_third_party_keyboard_is_found_and_moved_onto_the_screen():
-    snap, keyboard = hierarchy.parse(_grammarly_tree(), "com.jumbo.app")
+    snap, keyboard = hierarchy.parse(_grammarly_tree(), "com.example.pantry")
     assert [e.cls for e in snap.elements] == ["SearchField"]  # no Grammarly buttons among the app's elements
     assert keyboard.third_party
     assert keyboard.area == Bounds(0, 586, 430, 932)

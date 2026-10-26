@@ -9,21 +9,21 @@ from mobiletester.core import commands, ui
 from mobiletester.ios import hierarchy as ios
 
 
-def _android(fixture_xml, name="jumbo_search_results.xml"):
+def _android(fixture_xml, name="pantry_search_results.xml"):
     xml = fixture_xml(name)
     return xml, android.parse(xml)
 
 
 def test_lines_leave_out_positions_and_container_classes(fixture_xml):
     _, snap = _android(fixture_xml)
-    assert snap.find(1).describe() == '[1] EditText "Melk" #siteSearch [click edit]'
+    assert snap.find(1).describe() == '[1] EditText "Milk" #search [click edit]'
     assert snap.find(3).describe() == "[3] [scroll]"  # a View: its flag says what it is
-    assert snap.find(1).describe(bounds=True) == '[1] EditText "Melk" #siteSearch @(539,178) 812x120 [click edit]'
+    assert snap.find(1).describe(bounds=True) == '[1] EditText "Milk" #search @(539,178) 812x120 [click edit]'
 
 
 def test_same_screen_lists_only_what_changed(fixture_xml):
-    _, before = _android(fixture_xml, "jumbo_stepper_no_keyboard.xml")
-    _, after = _android(fixture_xml, "jumbo_stepper.xml")
+    _, before = _android(fixture_xml, "pantry_search_results.xml")
+    _, after = _android(fixture_xml, "pantry_stepper_no_keyboard.xml")
     full = ui.listing(after.elements)
     assert full[0] == f"elements ({len(after.elements)}):" and len(full) == len(after.elements) + 1
     diff = ui.listing(after.elements, previous=before.elements)
@@ -56,10 +56,11 @@ def test_android_inspect_finds_the_exact_node(fixture_xml):
     for el in snap.elements:  # every listed element maps back to its node
         node, _, _ = android.raw_node(xml, el)
         assert node["bounds"].startswith("[") and node["class"].endswith(el.cls)
-    lines = ui.inspect_lines(snap.find(12), *android.raw_node(xml, snap.find(12)))
-    assert 'content-desc="Toevoegen aan mandje Jumbo Halfvolle Melk 2 L"' in lines[1]
+    button = ui.find_by_text(snap, "Add to basket Pantry Semi-skimmed Milk 2 L")[0]
+    lines = ui.inspect_lines(button, *android.raw_node(xml, button))
+    assert 'content-desc="Add to basket Pantry Semi-skimmed Milk 2 L"' in lines[1]
     assert "checkable" not in lines[1]  # false flags are left out
-    assert lines[2].startswith("parent: class=android.view.View")
+    assert lines[2].startswith("parent: class=android.view.View") and "scrollable=true" in lines[2]
 
 
 def test_ios_inspect_finds_the_exact_node():

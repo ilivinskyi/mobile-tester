@@ -2,20 +2,8 @@
 
 import struct
 
+from binxml import string_pool as _string_pool
 from mobiletester.android import apkinfo
-
-
-def _string_pool(strings: list[str]) -> bytes:
-    data = b"".join(struct.pack("<H", len(s)) + s.encode("utf-16le") + b"\x00\x00" for s in strings)
-    offsets, pos = [], 0
-    for s in strings:
-        offsets.append(pos)
-        pos += 2 + len(s) * 2 + 2
-    data += b"\x00" * (-len(data) % 4)
-    header = 28
-    starts = header + 4 * len(strings)
-    body = struct.pack(f"<{len(strings)}I", *offsets) + data
-    return struct.pack("<HHIIIIII", 0x0001, header, header + len(body), len(strings), 0, 0, starts, 0) + body
 
 
 def _type_chunk(type_id: int, values: dict[int, int], count: int, language: str = "", mode: str = "plain",

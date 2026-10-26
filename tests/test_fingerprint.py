@@ -5,12 +5,12 @@ import dataclasses
 from mobiletester.android import hierarchy
 from mobiletester.core.fingerprint import screen_fingerprint
 
-JUMBO, JUMBO_ACT = "com.icemobile.jumboclient", "com.jumbo.fep.MainActivity"
+PANTRY, PANTRY_ACT = "com.example.pantry", "com.example.pantry.MainActivity"
 DISPLAY = (1080, 2400)
 
 
-def _jumbo(fixture_xml, name):
-    return screen_fingerprint(JUMBO, JUMBO_ACT, hierarchy.parse(fixture_xml(name), display=DISPLAY).elements)
+def _pantry(fixture_xml, name):
+    return screen_fingerprint(PANTRY, PANTRY_ACT, hierarchy.parse(fixture_xml(name), display=DISPLAY).elements)
 
 PKG, ACT = "com.example.shop", "com.example.shop.LoginActivity"
 
@@ -50,29 +50,29 @@ def test_same_activity_different_structure_differs(fixture_xml):
     assert screen_fingerprint(PKG, ACT, without_password) != screen_fingerprint(PKG, ACT, els)
 
 
-def test_jumbo_search_results_stay_one_screen(fixture_xml):
-    # Same search screen: before adding milk, with the quantity stepper, and with "Mandje 1 product".
-    ids = {_jumbo(fixture_xml, f) for f in ("jumbo_search_results.xml", "jumbo_stepper_no_keyboard.xml",
-                                             "jumbo_search_with_basket.xml")}
+def test_search_results_stay_one_screen(fixture_xml):
+    # Same search screen: before adding milk, with the quantity stepper, and with "Basket 1 product".
+    ids = {_pantry(fixture_xml, f) for f in ("pantry_search_results.xml", "pantry_stepper_no_keyboard.xml",
+                                              "pantry_search_with_basket.xml")}
     assert len(ids) == 1
 
 
 def test_keyboard_wrapper_scroll_doesnt_swallow_the_header(fixture_xml):
     # With the keyboard open the web page wraps everything in one more scroll container. The header must
     # still count; the screen only differs by the tab bar the app hides while typing.
-    assert _jumbo(fixture_xml, "jumbo_stepper.xml") != _jumbo(fixture_xml, "jumbo_search_results.xml")
-    els = hierarchy.parse(fixture_xml("jumbo_stepper.xml"), display=DISPLAY).elements
-    no_tabs = [e for e in hierarchy.parse(fixture_xml("jumbo_search_results.xml"), display=DISPLAY).elements
-               if not (e.clickable and e.label.startswith(("Start", "Producten", "Recepten", "Aanbiedingen",
-                                                             "Mandje")) and e.bounds.top > 2100)]
-    assert screen_fingerprint(JUMBO, JUMBO_ACT, els) == screen_fingerprint(JUMBO, JUMBO_ACT, no_tabs)
+    assert _pantry(fixture_xml, "pantry_stepper.xml") != _pantry(fixture_xml, "pantry_search_results.xml")
+    els = hierarchy.parse(fixture_xml("pantry_stepper.xml"), display=DISPLAY).elements
+    no_tabs = [e for e in hierarchy.parse(fixture_xml("pantry_search_results.xml"), display=DISPLAY).elements
+               if not (e.clickable and e.label.startswith(("Home", "Products", "Recipes", "Offers", "Basket"))
+                       and e.bounds.top > 2100)]
+    assert screen_fingerprint(PANTRY, PANTRY_ACT, els) == screen_fingerprint(PANTRY, PANTRY_ACT, no_tabs)
 
 
-def test_jumbo_screens_in_one_activity_differ(fixture_xml):
-    # Jumbo is one Activity with web content: only the screens' fixed parts tell them apart.
-    screens = ["jumbo_home.xml", "jumbo_categories.xml", "jumbo_recipes.xml", "jumbo_search_results.xml",
-               "jumbo_basket.xml"]
-    ids = [_jumbo(fixture_xml, f) for f in screens]
+def test_screens_in_one_activity_differ(fixture_xml):
+    # One Activity with web content: only the screens' fixed parts tell them apart.
+    screens = ["pantry_home.xml", "pantry_categories.xml", "pantry_recipes.xml", "pantry_search_results.xml",
+               "pantry_basket.xml"]
+    ids = [_pantry(fixture_xml, f) for f in screens]
     assert len(set(ids)) == len(screens), dict(zip(screens, ids, strict=True))
 
 

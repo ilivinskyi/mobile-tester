@@ -473,7 +473,7 @@ claude plugin validate .
 The last one checks the Claude Code plugin manifest in `.claude-plugin/`.
 
 The design decisions are in [docs/spec.md](docs/spec.md).
-The tests use real UI dumps captured from devices and simulators as fixtures.
+The tests use UI dumps captured from devices and simulators, plus screens of a made-up app ("Pantry") that recreate situations seen on real devices.
 The iOS runner is an Xcode project in `scripts/mobiletester/ios/runner/`; `idt runner build` builds it into `~/Library/Caches/mobile-tester`.
 
 ## License

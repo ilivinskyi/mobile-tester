@@ -16,6 +16,7 @@ from ..core.ui import (  # noqa: F401
     human_point,
     risk,
     truncate,
+    unsure_hits,
     visible_point,
 )
 
@@ -80,7 +81,7 @@ def parse(xml: str, display: tuple[int, int] | None = None) -> Snapshot:
 
     elements: list[Element] = []
 
-    def visit(node: ET.Element, depth: int, inside_interactive: bool, z: list[int]) -> None:
+    def visit(node: ET.Element, depth: int, inside_interactive: bool, z: list[int], web: bool = False) -> None:
         bounds = Bounds.parse(node.get("bounds", "")).clip(screen)
         cls = node.get("class", "")
         editable = _is_editable(cls)
@@ -118,15 +119,17 @@ def parse(xml: str, display: tuple[int, int] | None = None) -> Snapshot:
                 depth=depth,
                 sr_only=not interactive and not tappable,
                 z=z,
+                web=web,
             )
             if el.interactive:
                 el.risk = risk(own_label, el.label, el.short_id)
             elements.append(el)
         # Scroll containers don't swallow their children's labels: rows inside a list must stay listed.
         swallows = interactive and not scrollable
+        inside_web = web or cls == "android.webkit.WebView"
         for position, child in enumerate(node.findall("node")):
             order = int(child.get("drawing-order") or 0)
-            visit(child, depth + 1, inside_interactive or swallows, [*z, order, position])
+            visit(child, depth + 1, inside_interactive or swallows, [*z, order, position], inside_web)
 
     for position, node in enumerate(top_nodes):
         visit(node, 0, False, [int(node.get("drawing-order") or 0), position])

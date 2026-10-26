@@ -93,12 +93,28 @@ def _keyboard_area(adb: Adb) -> tuple[hierarchy.Bounds, ...]:
 
 def _tap_point(snap: hierarchy.Snapshot, el: hierarchy.Element, args,
                blocked: tuple[hierarchy.Bounds, ...] = ()) -> tuple[int, int]:
-    if hierarchy.visible_point(snap, el, blocked) is None:
-        raise NotFound(f"{el.describe()} is covered by other controls (e.g. a toolbar, tab bar or the keyboard). "
-                       "Scroll it into view, close the keyboard, or tap the control that covers it.")
+    trust = hierarchy.visible_point(snap, el, blocked) is not None
+    if not trust:
+        if hierarchy.visible_point(snap, el, blocked, trust_web_order=False) is None:
+            raise NotFound(f"{el.describe()} is covered by other controls (e.g. a toolbar, tab bar or the keyboard). "
+                           "Scroll it into view, close the keyboard, or tap the control that covers it.")
+        print(f"note: {el.describe()} looks covered only by web content that comes later in the page. In a WebView "
+              "the page decides what is drawn on top (a notice or dialog often is), so tapping it anyway: check that "
+              "the result is what this control does.")
     if args.fast:
-        return hierarchy.visible_point(snap, el, blocked)
-    return hierarchy.human_point(snap, el, random.Random(), blocked)
+        return hierarchy.visible_point(snap, el, blocked, trust_web_order=trust)
+    return hierarchy.human_point(snap, el, random.Random(), blocked, trust_web_order=trust)
+
+
+def _hit_label(snap: hierarchy.Snapshot, x: int, y: int) -> str:
+    """What a tap at a point reaches, for the output and the action log; in web content every candidate."""
+    el = hierarchy.element_at(snap, x, y)
+    if el is None:
+        return ""
+    others = hierarchy.unsure_hits(snap, x, y)
+    if not others:
+        return el.describe()
+    return " or ".join(e.describe() for e in (el, *others)) + " (web content: the page decides which is on top)"
 
 
 def _unique(matches: list[hierarchy.Element], what: str) -> hierarchy.Element:
@@ -152,8 +168,7 @@ def _resolve_target(adb: Adb, args, driver: Driver) -> tuple[int, int, hierarchy
         return x, y, None, f"keyboard key '{device.keyboard_key_at(adb, x, y)}'"
     try:
         snap, _ = device.last_snapshot(adb.serial)
-        el = hierarchy.element_at(snap, x, y)
-        return x, y, el, el.describe() if el else ""
+        return x, y, hierarchy.element_at(snap, x, y), _hit_label(snap, x, y)
     except LookupError:
         return x, y, None, ""
 

@@ -90,6 +90,8 @@ class Element:
     # Paint order key: (drawing-order, sibling position) per tree level. Higher = drawn later = on top;
     # an ancestor's key is a prefix of its descendants' keys.
     z: list[int] = field(default_factory=list)
+    # Inside a WebView: the page's CSS decides what is drawn on top, so the dump order says little about it.
+    web: bool = False
 
     @property
     def short_id(self) -> str:
@@ -189,6 +191,21 @@ def _on_top(a: Element, b: Element) -> bool:
     return a.z > b.z
 
 
+def _related(a: Element, b: Element) -> bool:
+    """One contains the other in the tree: a child is always drawn over its parent, in a page too."""
+    shorter, longer = sorted((a.z, b.z), key=len)
+    return longer[:len(shorter)] == shorter
+
+
+def order_unknown(a: Element, b: Element) -> bool:
+    """Whether the dump can't tell which of two elements is on top.
+
+    Inside a WebView a fixed overlay (a notice, a dialog) is often first in the page and still drawn over the
+    content and the tab bar that come after it.
+    """
+    return a.web and b.web and not _related(a, b)
+
+
 def _occluders(snapshot: Snapshot, target: Element) -> list[Element]:
     """Interactive elements drawn above `target` that would take a tap meant for it.
 
@@ -204,24 +221,43 @@ def element_at(snapshot: Snapshot, x: int, y: int) -> Element | None:
     return max(hits, key=lambda e: e.z, default=None)
 
 
+def unsure_hits(snapshot: Snapshot, x: int, y: int) -> list[Element]:
+    """Other controls under a point that may be the one on top instead of `element_at`'s pick (web content).
+
+    Page scroll areas are left out: they are the background a tap falls through to, not a rival target.
+    """
+    top = element_at(snapshot, x, y)
+    if top is None:
+        return []
+    return [e for e in snapshot.elements
+            if e is not top and e.interactive and not e.scrollable and e.bounds.contains(x, y)
+            and order_unknown(e, top)]
+
+
 _SAMPLE_FRACTIONS = (0.5, 0.35, 0.65, 0.2, 0.8, 0.1, 0.9)
 
 
-def _covering(snapshot: Snapshot, target: Element, blocked: tuple[Bounds, ...]) -> list[Bounds]:
-    b = target.bounds
-    regions = [e.bounds for e in _occluders(snapshot, target)] + list(blocked)
-    return [r for r in regions if r.clip(b).area > 0]
+def _covering_tiers(snapshot: Snapshot, target: Element, blocked: tuple[Bounds, ...],
+                    trust_web_order: bool) -> list[list[Bounds]]:
+    """The areas a tap on `target` must avoid, strictest first; the first tier with a free point wins.
 
-
-def visible_point(snapshot: Snapshot, target: Element, blocked: tuple[Bounds, ...] = ()) -> tuple[int, int] | None:
-    """A point inside `target` that no other interactive element covers, closest to its center.
-
-    `blocked`: screen areas covered by something outside the app's hierarchy, such as the keyboard.
-    None means the element is fully covered (e.g. a hidden button under another control, or a row
-    behind the bottom navigation or the keyboard): scroll it into view or pick a different target.
+    Trusting the dump order, every occluder counts. Otherwise a spot no other control overlaps is still
+    preferred (page scroll areas are background), and failing that only controls known to be on top block.
     """
     b = target.bounds
-    covering = _covering(snapshot, target, blocked)
+
+    def overlapping(elements: list[Element]) -> list[Bounds]:
+        return [r for r in [e.bounds for e in elements] + list(blocked) if r.clip(b).area > 0]
+
+    occluders = _occluders(snapshot, target)
+    if trust_web_order:
+        return [overlapping(occluders)]
+    sure = [e for e in occluders if not order_unknown(e, target)]
+    unsure_controls = [e for e in occluders if order_unknown(e, target) and not e.scrollable]
+    return [overlapping(sure + unsure_controls), overlapping(sure)]
+
+
+def _free_point(b: Bounds, covering: list[Bounds]) -> tuple[int, int] | None:
     cx, cy = b.center
     candidates = sorted(
         {(b.left + round(b.width * fx), b.top + round(b.height * fy))
@@ -234,23 +270,40 @@ def visible_point(snapshot: Snapshot, target: Element, blocked: tuple[Bounds, ..
     return None
 
 
+def visible_point(snapshot: Snapshot, target: Element, blocked: tuple[Bounds, ...] = (),
+                  trust_web_order: bool = True) -> tuple[int, int] | None:
+    """A point inside `target` that no other interactive element covers, closest to its center.
+
+    `blocked`: screen areas covered by something outside the app's hierarchy, such as the keyboard.
+    None means the element is fully covered (e.g. a hidden button under another control, or a row
+    behind the bottom navigation or the keyboard): scroll it into view or pick a different target.
+    `trust_web_order` False: web elements covering `target` only by their place in the dump don't block it.
+    """
+    for covering in _covering_tiers(snapshot, target, blocked, trust_web_order):
+        if point := _free_point(target.bounds, covering):
+            return point
+    return None
+
+
 def human_point(snapshot: Snapshot, target: Element, rng: random.Random,
-                blocked: tuple[Bounds, ...] = ()) -> tuple[int, int] | None:
+                blocked: tuple[Bounds, ...] = (), trust_web_order: bool = True) -> tuple[int, int] | None:
     """Where a finger would land: near the center, never exactly on it, never on a covering control.
 
     Gaussian around the center (sigma 15% of the size), kept inside the middle 80% of the element.
     """
     b = target.bounds
-    covering = _covering(snapshot, target, blocked)
     cx, cy = b.center
-    for _ in range(40):
-        x = round(rng.gauss(cx, b.width * 0.15))
-        y = round(rng.gauss(cy, b.height * 0.15))
-        inside = (b.left + b.width * 0.1 <= x <= b.right - b.width * 0.1
-                  and b.top + b.height * 0.1 <= y <= b.bottom - b.height * 0.1)
-        if inside and not any(r.contains(x, y) for r in covering):
-            return x, y
-    return visible_point(snapshot, target, blocked)
+    for covering in _covering_tiers(snapshot, target, blocked, trust_web_order):
+        for _ in range(40):
+            x = round(rng.gauss(cx, b.width * 0.15))
+            y = round(rng.gauss(cy, b.height * 0.15))
+            inside = (b.left + b.width * 0.1 <= x <= b.right - b.width * 0.1
+                      and b.top + b.height * 0.1 <= y <= b.bottom - b.height * 0.1)
+            if inside and not any(r.contains(x, y) for r in covering):
+                return x, y
+        if point := _free_point(b, covering):
+            return point
+    return None
 
 
 def _norm(text: str) -> str:

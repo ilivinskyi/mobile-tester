@@ -4,9 +4,12 @@ Each fixture recreates one situation seen on a real phone: screen-reader-only pr
 another one, a card under the tab bar, a non-fullscreen permission dialog, a Chrome custom tab.
 """
 
+import argparse
 import random
 
-from mobiletester.android import hierarchy
+import pytest
+
+from mobiletester.android import cli, hierarchy
 from mobiletester.core import guard
 
 DISPLAY = (1080, 2400)
@@ -76,6 +79,69 @@ def test_fully_covered_element_has_no_tap_point(fixture_xml):
     snap = _snap(fixture_xml, "pantry_stepper.xml")
     add_to_list = hierarchy.find_by_text(snap, f"Add to list {MILK}")[0]
     assert hierarchy.visible_point(snap, add_to_list) is None
+
+
+def test_web_content_is_marked(fixture_xml):
+    snap = _snap(fixture_xml, "pantry_web_home_with_card.xml")
+    assert hierarchy.find_by_text(snap, "Close")[0].web
+    assert not next(e for e in snap.elements if e.cls == "WebView").web
+    assert not any(e.web for e in _snap(fixture_xml, "pantry_home_with_card.xml").elements)
+
+
+def test_web_overlay_first_in_page_is_not_treated_as_covered(fixture_xml):
+    # Inside a WebView the page decides what is on top (CSS position and z-index), not the order of the dump:
+    # the notice comes first in the page but is drawn over the scroll area and the tab bar.
+    snap = _snap(fixture_xml, "pantry_web_home_with_card.xml")
+    close = hierarchy.find_by_text(snap, "Close")[0]
+    assert hierarchy.visible_point(snap, close) is None, "fixture premise: dump order says the scroll area is on top"
+    x, y = hierarchy.visible_point(snap, close, trust_web_order=False)
+    assert close.bounds.contains(x, y)
+
+
+def test_web_overlay_prefers_the_part_nothing_overlaps(fixture_xml):
+    snap = _snap(fixture_xml, "pantry_web_home_with_card.xml")
+    read_more = hierarchy.find_by_text(snap, "Read more")[0]
+    x, y = hierarchy.visible_point(snap, read_more, trust_web_order=False)
+    tab_top = hierarchy.find_by_text(snap, "Products")[0].bounds.top
+    assert read_more.bounds.contains(x, y) and y < tab_top
+
+
+def test_native_order_is_still_trusted(fixture_xml):
+    snap = _snap(fixture_xml, "pantry_stepper.xml")
+    add_to_list = hierarchy.find_by_text(snap, f"Add to list {MILK}")[0]
+    assert hierarchy.visible_point(snap, add_to_list, trust_web_order=False) is None
+
+
+def test_point_under_two_web_controls_names_both(fixture_xml):
+    # A tap on the notice's button, where the tab bar lies behind it on screen but after it in the page.
+    snap = _snap(fixture_xml, "pantry_web_home_with_card.xml")
+    top = hierarchy.element_at(snap, 305, 2205)
+    others = hierarchy.unsure_hits(snap, 305, 2205)
+    assert {top.label, *(e.label for e in others)} == {"Products", "Read more"}
+    assert not any(e.scrollable for e in others), "page scroll areas are background, not candidates"
+    assert hierarchy.unsure_hits(_snap(fixture_xml, "pantry_stepper.xml"), 848, 671) == []
+
+
+def test_tap_on_web_overlay_goes_ahead_with_a_note(fixture_xml, capsys):
+    snap = _snap(fixture_xml, "pantry_web_home_with_card.xml")
+    close = hierarchy.find_by_text(snap, "Close")[0]
+    x, y = cli._tap_point(snap, close, argparse.Namespace(fast=False))
+    assert close.bounds.contains(x, y)
+    assert "web content" in capsys.readouterr().out
+
+
+def test_tap_on_natively_covered_element_is_still_refused(fixture_xml):
+    snap = _snap(fixture_xml, "pantry_stepper.xml")
+    add_to_list = hierarchy.find_by_text(snap, f"Add to list {MILK}")[0]
+    with pytest.raises(cli.NotFound, match="covered"):
+        cli._tap_point(snap, add_to_list, argparse.Namespace(fast=True))
+
+
+def test_coordinate_tap_label_names_every_candidate(fixture_xml):
+    snap = _snap(fixture_xml, "pantry_web_home_with_card.xml")
+    label = cli._hit_label(snap, 305, 2205)
+    assert '"Products"' in label and '"Read more"' in label
+    assert cli._hit_label(snap, 540, 330).endswith('"What are you looking for?" [click]')
 
 
 def test_text_match_prefers_own_label_of_clickable(fixture_xml):

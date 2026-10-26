@@ -14,7 +14,7 @@ Full options for every command: [reference.md](reference.md).
 **REQUIRED:** follow the `ios-human-input` skill for every UI action.
 
 **Testing an app is not this skill's job.** When the user wants an app tested (exploring it, test cases, reproducing a bug, a UI review, a retest, or anything that should end in a report), load the `ios-native-tester` skill first and follow it.
-It reads the project config (auto mode, reports folder, tester, guardrails) and runs the interview, the session and the report; this skill is the command reference it uses.
+It reads the project config (autopilot, reports folder, tester, guardrails) and runs the interview, the session and the report; this skill is the command reference it uses.
 Use this skill on its own only for one-off tasks: a screenshot, checking what's installed, a crash report, a quick tap.
 
 ## How it works

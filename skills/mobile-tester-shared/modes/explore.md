@@ -22,7 +22,7 @@ Work area by area, like a curious, slightly impatient user:
 - **Links:** `app links` lists the links the app declares; open them with `open` from a cold start (`--cold`) and while the app runs, then press back.
 - **Offline:** on Android, `adt net offline` before a submit, a search or loading more, then `net online`: look for endless spinners, lost or doubled submissions, wrong messages.
 - **State:** does entered data, login or unfinished work survive a restart? Do changes show up everywhere they should?
-- **Prompts:** permissions, consent and rating prompts: follow the auto-mode defaults, note how they behave and what they cover.
+- **Prompts:** permissions, consent and rating prompts: follow the autopilot defaults, note how they behave and what they cover.
 - **External handoffs:** links that open the browser, login custom tabs, store pages: does the app recover when you come back?
 - **Errors:** what does the user see when something fails, and is it true (a rejected search reported as "we're offline" is a bug)?
 
@@ -34,7 +34,7 @@ While exploring:
 
 ## Stop
 
-- At the time box (auto mode `time_box_end`), or when the charter's questions are answered.
+- At the time box (autopilot `time_box_end`), or when the charter's questions are answered.
 - Before stopping, spend the last minutes re-checking each bug's reproduction, so every bug has its steps and a clip.
 
 ## Report extras

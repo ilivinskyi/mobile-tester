@@ -146,4 +146,4 @@ Python scripts run with `uv run --script`, so they may declare their own depende
 | 3 | device or adb problem |
 | 4 | element not found, ambiguous, covered, or wait timed out |
 | 5 | blocked by a guardrail: ask the user |
-| 6 | decision needed: ask the user or apply the auto-mode default |
+| 6 | decision needed: ask the user or apply the autopilot default |

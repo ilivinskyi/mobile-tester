@@ -27,6 +27,6 @@ devices:
     navigation: gesture     # from `adt info` / `idt info`
     keyboard: gboard
 
-auto_mode:
+autopilot:
   enabled: false
-  decisions: {}             # see auto-mode.md; a missing key means "ask"
+  decisions: {}             # see autopilot.md; a missing key means "ask"

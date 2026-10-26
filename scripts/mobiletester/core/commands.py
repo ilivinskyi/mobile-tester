@@ -22,7 +22,7 @@ class Blocked(Exception):
 
 
 class NeedsDecision(Exception):
-    """The user (or the auto-mode default) has to choose how to continue."""
+    """The user (or the autopilot default) has to choose how to continue."""
 
 
 def parse_time(value: str) -> float:

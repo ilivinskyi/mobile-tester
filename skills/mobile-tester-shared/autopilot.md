@@ -1,10 +1,14 @@
-# Auto mode
+# Autopilot
 
 `dt` is the platform's device tool: `adt` on Android, `idt` on iOS.
 
-With `auto_mode.enabled: true` in `.mobile-tester/config.yaml`, the skill applies the defaults below instead of stopping to ask.
+Autopilot is this skill's setting, not your agent's permission mode (such as Claude Code's "auto mode", which approves tool calls).
+Autopilot only skips the skill's own routine questions; whether the agent may write files or run commands is still decided by the agent's permissions.
+When a tool call is blocked by those permissions, say so plainly and don't call it an autopilot problem.
+
+With `autopilot.enabled: true` in `.mobile-tester/config.yaml`, the skill applies the defaults below instead of stopping to ask.
 Every decision taken automatically is written to the session's `logs/decisions.md` (time, decision, value, why it came up), so the report can show what was decided without the user.
-With auto mode off, the skill asks at each of these points.
+With autopilot off, the skill asks at each of these points.
 
 ## Decision catalog
 
@@ -38,7 +42,7 @@ These always stop the session and wait for the user, whatever the config says:
 ## Config shape
 
 ```yaml
-auto_mode:
+autopilot:
   enabled: true
   decisions:
     keyboard_fallback: keyevents
@@ -56,4 +60,5 @@ auto_mode:
 ```
 
 A key missing from the config falls back to `ask`.
+Older configs call this block `auto_mode:`: read it the same way, and rename it to `autopilot:` the next time you write the config.
 Older configs may say `state_reset: run_reset_hook`: treat it as `profile_strategy` (a profile with a reset hook has `reset.strategy: hook`).

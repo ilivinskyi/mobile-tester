@@ -62,8 +62,9 @@ Mobile Tester addresses each of these, with rules the model follows and command-
 - **Safe on your personal phone.**
   Payments, outgoing messages, account changes, accepting terms, and system-setting changes stop and ask, whatever the configuration says.
   Builds from outside a store are checked (signers, splits, permissions) before installing.
-- **Auto mode when you want it.**
+- **Autopilot when you want it.**
   Approve defaults for routine decisions once (permission prompts, consent banners, login, crash handling) and the session runs without stopping, logging every decision it made for you.
+  Autopilot only covers the skill's own questions; your agent's permission settings (such as Claude Code's auto mode) still decide which files and commands it may use.
 - **Jira-friendly.**
   Link a ticket (read through your agent's Jira integration if it has one, or paste it), and get one Markdown bug draft per finding.
   Nothing is created in Jira without your explicit approval.
@@ -98,7 +99,7 @@ Both CLIs share one core: the report, the finding lifecycle, sessions, guardrail
 | `ios-native-tester` | When you ask to test an iOS app; in Claude Code also `/ios-native-tester` | The same session flow on an iOS simulator or a real iPhone or iPad (five modes; memory is Android only for now) |
 | `ios-human-input` | Automatically, whenever a simulator or device is driven | Human-like input on iOS: held touches, the left-edge back swipe, typing key by key |
 | `ios-device` | Automatically | Reference for the `idt` command-line tool |
-| `mobile-tester-shared` | Never on its own | Onboarding, interview, modes, auto mode, report standard and templates used by both testers |
+| `mobile-tester-shared` | Never on its own | Onboarding, interview, modes, autopilot, report standard and templates used by both testers |
 
 ## Requirements
 
@@ -316,7 +317,7 @@ For an iOS app, say so ("on the iPhone simulator", "on my iPhone"); everything b
 In Claude Code, `/android-native-tester` and `/ios-native-tester` start the same skills.
 
 1. **Onboarding (first time only).**
-   Your name for reports, the reports folder, an optional Jira project, your devices (and which one is personal), an app profile with a description of your app in your own words, whether to report problems noticed outside a session's scope (and which unfinished areas to never report), and whether to use auto mode.
+   Your name for reports, the reports folder, an optional Jira project, your devices (and which one is personal), an app profile with a description of your app in your own words, whether to report problems noticed outside a session's scope (and which unfinished areas to never report), and whether to use autopilot.
    Everything is saved in `.mobile-tester/` so later sessions start straight away; one setup serves both platforms.
 2. **Session interview.**
    Which app (type its name as on your phone, or its package id; the agent finds it on the device and lets you pick when several match) or build file, a ticket or context, the mode, the charter, the device, the time box, and what evidence to collect.
@@ -382,7 +383,7 @@ Onboarding writes this into the folder you test from:
 
 ```
 .mobile-tester/
-  config.yaml                 tester, reports, Jira, device inventory, auto mode
+  config.yaml                 tester, reports, Jira, device inventory, autopilot
   state/                      per-device state of adt and idt (not for git)
   apps/<package or bundle id>/
     profile.yaml              what the app is and how it works (about), store URL, expected signer,
@@ -416,7 +417,7 @@ Every run that is compared with another starts from the same state: the session 
 
 ## Guardrails
 
-These always stop the session and ask, even in auto mode:
+These always stop the session and ask, even in autopilot:
 
 - Purchases, payments, subscriptions.
 - Sending messages, posts, reviews, invites or feedback.

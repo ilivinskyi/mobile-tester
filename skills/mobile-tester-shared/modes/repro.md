@@ -37,7 +37,7 @@ When it reproduces, find what's necessary:
 
 A bug reproduced only by automation is **Unconfirmed**.
 On an iOS simulator the person reproduces it with the mouse in Simulator.app (clicks are touches), or on a real iPhone when the team has one.
-Manual-repro protocol (offer it; in auto mode `unconfirmed_repro` decides when):
+Manual-repro protocol (offer it; in autopilot `unconfirmed_repro` decides when):
 1. Reset to the start state as in "Start state" in the entry skill (`android-native-tester` or `ios-native-tester`) and tell the user exactly what is on screen.
 2. `dt record start --out RUN/videos/<id>-manual.mp4`.
 3. Give the user the steps and ask them to perform them by hand (offer the outcomes: reproduced / not reproduced / something else).

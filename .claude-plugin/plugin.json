@@ -2,7 +2,7 @@
   "name": "mobile-tester",
   "displayName": "Mobile Tester",
   "version": "0.3.0",
-  "description": "Black-box testing of Android apps (phones and emulators) and iOS apps (simulators, iPhones and iPads), driven like a person: /android-native-tester and /ios-native-tester run exploratory, test-case, bug-repro and UI-review sessions with onboarding, auto mode and one standard QA report.",
+  "description": "Black-box testing of Android apps (phones and emulators) and iOS apps (simulators, iPhones and iPads), driven like a person: /android-native-tester and /ios-native-tester run exploratory, test-case, bug-repro and UI-review sessions with onboarding, autopilot and one standard QA report.",
   "author": {
     "name": "Ihor Livinskyi"
   },

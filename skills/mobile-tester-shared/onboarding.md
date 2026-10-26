@@ -24,7 +24,7 @@ Ask:
    Personal devices get stricter guardrails: no system-setting changes, no clearing app data, no installing builds without asking.
    Simulators and emulators are never personal.
 3. Record the device id (Android serial, iOS simulator or device UDID), name, platform, kind (physical, emulator or simulator), personal, navigation and keyboard.
-   Android: if the keyboard isn't Gboard, warn that on-screen typing may need the fallback (see `keyboard_fallback` in auto mode).
+   Android: if the keyboard isn't Gboard, warn that on-screen typing may need the fallback (see `keyboard_fallback` in autopilot).
 
 ## 3. App profiles
 
@@ -72,13 +72,13 @@ Sessions have a charter, but testers notice things elsewhere too. Ask two questi
 2. "Are there screens or features that are still being built, which should never be reported even when they look broken?"
    Save the list in the user's own words as `outside_scope.not_ready`.
 
-## 4. Auto mode
+## 4. Autopilot
 
-Ask: "Would you like auto mode? Then I won't stop at routine decisions and use the defaults you approve now."
-- No: write `auto_mode.enabled: false`. The skill asks at each decision point.
-- Yes: show the whole catalog from [auto-mode.md](auto-mode.md) as one list (decision, default, options) and let the user change any default.
+Ask: "Would you like autopilot? Then I won't stop at routine decisions and use the defaults you approve now."
+- No: write `autopilot.enabled: false`. The skill asks at each decision point.
+- Yes: show the whole catalog from [autopilot.md](autopilot.md) as one list (decision, default, options) and let the user change any default.
   Also show the "never automatic" list so it's clear what will still stop the session.
-  Write `auto_mode.enabled: true` and every decision with its chosen value.
+  Write `autopilot.enabled: true` and every decision with its chosen value.
 
 ## 5. Files and ignores
 

@@ -22,7 +22,7 @@ Bugs found that way may not exist for real users, and bugs real users hit may ne
 1. Never send UI input with raw `adb shell input ...` during a test. Use `adt tap/type/key/swipe/scroll`.
 2. `--fast` is only for setup and reset: installing, clearing data, getting to the start state, deleting leftovers. Never for the steps under test or a bug's repro steps. Mark fast steps in `session.json` (`setup_steps_fast`).
 3. Navigate the way the device's user does: `adt key back` and `adt key home` already pick an edge/bottom swipe in gesture mode and the nav-bar key in 3-button mode. Dismiss the keyboard the same way a person would (back, or the keyboard's hide key).
-4. Type with `adt type`. When it exits with code 6 (`DECISION NEEDED`), ask the user, or apply the auto-mode default from `.mobile-tester/config.yaml`. Record in the finding when text was not typed through the keyboard.
+4. Type with `adt type`. When it exits with code 6 (`DECISION NEEDED`), ask the user, or apply the autopilot default from `.mobile-tester/config.yaml`. Record in the finding when text was not typed through the keyboard.
 5. After every action, read the warnings. "no visible change" means the action may not have landed: observe before the next step, and never count that step as done.
 6. Keep a person's rhythm: one action, look at the result, next action. Don't chain blind actions without checking.
 7. Prefer `adt observe --image-only` during bug reproduction. Full observes dump the UI through the accessibility layer, which can change how WebViews behave. Use them when you need element indices, not as a habit.

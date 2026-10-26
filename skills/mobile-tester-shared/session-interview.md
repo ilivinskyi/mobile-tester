@@ -5,7 +5,7 @@
 Asked at the start of every session, after onboarding.
 Ask with your question tool (AskUserQuestion in Claude Code) or as a numbered list in chat, at most four questions at a time, recommended option first.
 Skip a question when the command arguments, the config, or the app profile already answer it.
-In auto mode, ask only the questions marked **always**; the rest take the defaults shown.
+In autopilot, ask only the questions marked **always**; the rest take the defaults shown.
 
 ## Questions
 
@@ -16,7 +16,7 @@ In auto mode, ask only the questions marked **always**; the rest take the defaul
    - Several candidates: show the numbered list (name, package, version or kind) and let the user pick.
    - No match: say so, and ask whether the app needs to be installed from a file or the store first.
    Match the package to an app profile; offer to create one if missing.
-   **If the profile has no `about.description`** (always, even in auto mode): ask the user to describe the app and how it works, as in "Describe the app" in [onboarding.md](onboarding.md), and save it to the profile.
+   **If the profile has no `about.description`** (always, even in autopilot): ask the user to describe the app and how it works, as in "Describe the app" in [onboarding.md](onboarding.md), and save it to the profile.
    If they decline, write in `session.json` `not_covered` that expected behaviour was inferred without an app description.
 2. **Ticket and context.** (always)
    A Jira key or URL, or "no ticket".
@@ -40,6 +40,6 @@ In auto mode, ask only the questions marked **always**; the rest take the defaul
 
 ## Session plan
 
-Summarise in one paragraph, then wait for a go (in auto mode, continue right away):
+Summarise in one paragraph, then wait for a go (in autopilot, continue right away):
 charter, mode, app and build, device, login state, start state, time box, evidence, hooks, ticket.
 Write the same values into `session.json` after `dt session start`.

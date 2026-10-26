@@ -28,7 +28,7 @@ The case **passes when the bug no longer happens**: the expected result is shown
 
 ## Update the registry
 
-After the user has seen the results (in auto mode right away):
+After the user has seen the results (in autopilot right away):
 - Fixed: `dt issues set K-3 --package PKG --status fixed --build "<version (code)>" --run <run folder name> --note "<N of M runs passed>"`.
 - Still reproduces: leave it open; `dt issues sync RUN --package PKG` records the sighting.
 - A fixed issue that comes back in a later session is reopened automatically by `dt issues sync`.

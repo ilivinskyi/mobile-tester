@@ -28,7 +28,7 @@ Modes of `android-native-tester` (guides in its folder, not separate skills): ex
 - After each tap, compare the screen with the one before it and warn when nothing visibly changed.
 - Back and Home follow the device's navigation mode: edge swipe / swipe up in gesture mode, the navigation-bar keys in 3-button mode.
 - Typing goes through the on-screen keyboard: keys are located in the keyboard window (`uiautomator dump --windows`), including layer switches for digits and symbols.
-  When a character can't be located, the CLI stops and the skill asks the user (or applies the auto-mode default: per-character key events, noted in the report).
+  When a character can't be located, the CLI stops and the skill asks the user (or applies the autopilot default: per-character key events, noted in the report).
 - Every action is appended to the run's `logs/actions.jsonl` with wall time and mode.
 - Screen recordings store the wall-clock start of every 3-minute chunk, so bug clips are cut at exact times.
 
@@ -47,14 +47,14 @@ Modes of `android-native-tester` (guides in its folder, not separate skills): ex
 ## Onboarding and configuration
 
 - Onboarding runs on the first `/android-native-tester` in a project, and again when asked.
-- Covers: tester and team defaults, device inventory, app profiles, auto mode.
+- Covers: tester and team defaults, device inventory, app profiles, autopilot.
 - Each app profile has an `about` block written from the user's own description: purpose, users, main flows, rules, roles, integrations, out-of-scope areas, glossary.
   Expected behaviour, test ideas and severity come from it and the ticket; the skills carry no assumptions about any app domain.
-- Auto mode: one list of every decision the skill would otherwise ask about, each with a default the user confirms or changes.
+- Autopilot: one list of every decision the skill would otherwise ask about, each with a default the user confirms or changes.
   Guardrails (payments, messages, account changes, accepting terms, system settings on a personal phone) are never automatic.
 - Per-session interview at every run: ticket and context, mode, device, build installed or to install, start state, focus, time budget.
-  In auto mode it only asks what has no default.
-- Files: `.mobile-tester/config.yaml` (team defaults, devices, auto mode), `.mobile-tester/apps/<package or bundle id>/profile.yaml`, `notes.md`, `hooks/`, `checks/`, gitignored `secrets.local.yaml`, and `.mobile-tester/state/` (device state, gitignored). One config serves both platforms.
+  In autopilot it only asks what has no default.
+- Files: `.mobile-tester/config.yaml` (team defaults, devices, autopilot), `.mobile-tester/apps/<package or bundle id>/profile.yaml`, `notes.md`, `hooks/`, `checks/`, gitignored `secrets.local.yaml`, and `.mobile-tester/state/` (device state, gitignored). One config serves both platforms.
 - App scripts: lifecycle hooks (setup, reset, teardown), login helper, custom checks, app knowledge notes.
 
 ## Jira

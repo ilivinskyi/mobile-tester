@@ -1,6 +1,6 @@
 ---
 name: mobile-tester-shared
-description: Shared reference files of the android-native-tester and ios-native-tester skills (onboarding, session interview, test modes, auto mode, report standard, templates). Not used on its own - when the user wants an app tested, load android-native-tester (Android) or ios-native-tester (iOS) instead.
+description: Shared reference files of the android-native-tester and ios-native-tester skills (onboarding, session interview, test modes, autopilot, report standard, templates). Not used on its own - when the user wants an app tested, load android-native-tester (Android) or ios-native-tester (iOS) instead.
 ---
 
 # mobile-tester shared files
@@ -14,9 +14,9 @@ Both take the same command names and options where the platform has the concept;
 
 | File | Content |
 |---|---|
-| [onboarding.md](onboarding.md) | First use in a project: tester, devices, app profiles, start state, auto mode |
+| [onboarding.md](onboarding.md) | First use in a project: tester, devices, app profiles, start state, autopilot |
 | [session-interview.md](session-interview.md) | The questions at the start of every session |
-| [auto-mode.md](auto-mode.md) | Decisions auto mode takes, and what is never automatic |
+| [autopilot.md](autopilot.md) | Decisions autopilot takes, and what is never automatic |
 | [report-standard.md](report-standard.md) | Run folder, `session.json`, `findings.json`, severity, writing findings |
 | [modes/](modes/) | explore, test-case, repro, ui-review, retest, memory |
 | [templates/](templates/) | config, app profile, notes, test case, hook and check examples |

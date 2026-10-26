@@ -1,6 +1,6 @@
 ---
 name: ios-native-tester
-description: Use when the user wants an iOS app tested on an iPhone or iPad simulator or a real iPhone or iPad, in any words ("test the X app on iOS", "explore X on the iPhone simulator for 15 minutes", "test X on my iPhone", "reproduce PROJ-12 on iOS", "run these test cases on iOS", "check what's fixed in 1.2", "review the iOS UI") or via /ios-native-tester - exploratory testing, running test cases, reproducing a bug, reviewing UI and accessibility, or retesting known issues on a new build, with onboarding on first use and a standard QA report. Load it before touching the simulator or device; it reads the project config (auto mode, reports folder, tester).
+description: Use when the user wants an iOS app tested on an iPhone or iPad simulator or a real iPhone or iPad, in any words ("test the X app on iOS", "explore X on the iPhone simulator for 15 minutes", "test X on my iPhone", "reproduce PROJ-12 on iOS", "run these test cases on iOS", "check what's fixed in 1.2", "review the iOS UI") or via /ios-native-tester - exploratory testing, running test cases, reproducing a bug, reviewing UI and accessibility, or retesting known issues on a new build, with onboarding on first use and a standard QA report. Load it before touching the simulator or device; it reads the project config (autopilot, reports folder, tester).
 argument-hint: "[explore|test-case|repro|ui-review|retest] [ticket, app, .app build or test-case file]"
 ---
 
@@ -11,7 +11,7 @@ Start from the user's request (in Claude Code, the command arguments: $ARGUMENTS
 
 **REQUIRED:** follow the `ios-human-input` skill for every UI action, and use the `ios-device` skill for `idt` commands.
 `idt` is the mobile-tester iOS command line: the `idt` command when it is installed (`uv tool install`, see the README), otherwise, in the Claude Code plugin, `uv run --script "${CLAUDE_PLUGIN_ROOT}/scripts/idt.py"`.
-Shared files (onboarding, interview, modes, auto mode, report standard, templates) are in the `mobile-tester-shared` skill, next to this one: `../mobile-tester-shared/`. In them, `dt` means `idt`.
+Shared files (onboarding, interview, modes, autopilot, report standard, templates) are in the `mobile-tester-shared` skill, next to this one: `../mobile-tester-shared/`. In them, `dt` means `idt`.
 Questions to the user: use your agent's question tool when it has one (AskUserQuestion in Claude Code), otherwise ask in chat as a short numbered list with the recommended option first.
 
 A simulator runs builds made for it (`.app` from `xcodebuild -sdk iphonesimulator`), not App Store apps or `.ipa` files; built-in apps (Reminders, Contacts, ...) are always there.
@@ -31,13 +31,13 @@ Work through these phases in order and keep the user's task list in step with th
    - Runner not built: `idt runner build` (about a minute, once per Xcode version); for a device `idt -s UDID runner build --team TEAMID` with the team id the user gave you (ask; never pick one). `idt` starts the runner itself when a command needs it (about 15 s on a simulator, longer on a device).
 2. Read `.mobile-tester/config.yaml` in the project.
    If it doesn't exist, run onboarding first: [onboarding.md](../mobile-tester-shared/onboarding.md).
-3. Note whether auto mode is on. In auto mode, apply the defaults from [auto-mode.md](../mobile-tester-shared/auto-mode.md) instead of asking at the decision points listed there.
+3. Note whether autopilot is on. In autopilot, apply the defaults from [autopilot.md](../mobile-tester-shared/autopilot.md) instead of asking at the decision points listed there.
    Guardrails are never automatic.
 
 ### 2. Session interview
 
 Ask the questions in [session-interview.md](../mobile-tester-shared/session-interview.md), skipping what the arguments or the config already answer.
-End with a one-paragraph session plan (charter, mode, simulator or device, build, start state, time box, evidence) and wait for the user's go, unless auto mode is on.
+End with a one-paragraph session plan (charter, mode, simulator or device, build, start state, time box, evidence) and wait for the user's go, unless autopilot is on.
 Memory mode is Android only for now: offer explore mode on the same flows instead.
 
 ### 3. Preparation
@@ -88,7 +88,7 @@ Judging behaviour:
 - Expected behaviour comes from the app profile's `about` (description, main flows, rules, glossary), the ticket, and what the app itself says on screen. Nothing else defines "correct".
 - Don't bring in checks that belong to a different kind of app. Test ideas follow this app's flows and rules, plus the universal ones (crashes, data loss, wrong or misleading messages, state that doesn't persist, accessibility, layout).
 - iOS conventions are part of "what the app says": the left-edge swipe goes back on pushed screens, sheets close by swiping down, destructive actions ask first. An app that breaks one of these without a reason is worth an observation.
-- When you can't tell whether something is a bug because the expected behaviour isn't described, ask the user (or, in auto mode, report it as an observation and write the open question in `notes`). Record any assumption you make in the finding.
+- When you can't tell whether something is a bug because the expected behaviour isn't described, ask the user (or, in autopilot, report it as an observation and write the open question in `notes`). Record any assumption you make in the finding.
 
 Problems outside the charter (another screen, an unrelated feature):
 - Never report anything in an area listed in the profile's `outside_scope.not_ready`, not even as an observation.
@@ -109,7 +109,7 @@ While testing:
 1. `idt session end`: it stops the recording and the app log, and builds the report right away when `idt report check` passes (otherwise it lists what to fix). Run the teardown hook if the profile has one.
 2. Cut one clip per bug: `idt clip --from <t of first repro step> --to <t of last> --out RUN/videos/<id>.mp4`, and add it to the finding's evidence.
 3. `idt issues sync RUN --package BUNDLE`: new bugs and accessibility findings join the app's known issues (each with a regression test case draft in `.mobile-tester/apps/<bundle id>/tests/`), and known issues seen again get a sighting.
-4. `idt report check RUN`, fix every problem, then `idt report build RUN` (again: the steps above changed findings). Open `index.html` in a browser (the browser pane in Claude Code) and look at it; in auto mode `report_build` decides, and it never waits for a question.
+4. `idt report check RUN`, fix every problem, then `idt report build RUN` (again: the steps above changed findings). Open `index.html` in a browser (the browser pane in Claude Code) and look at it; in autopilot `report_build` decides, and it never waits for a question.
 5. For each Unconfirmed finding, offer the manual reproduction in [modes/repro.md](../mobile-tester-shared/modes/repro.md): on a simulator the person clicks in Simulator.app, on a device they use it by hand.
 6. Offer Jira: each finding page has Copy title and Copy for Jira buttons, the `bugs/<id>.md` files are paste-ready, and `findings.csv` imports them all through Jira's CSV import. Create issues through the Atlassian connector only when the user explicitly approves each one.
 7. Append what you learned about the app (screen map, quirks) to the app's `notes.md`, after telling the user.

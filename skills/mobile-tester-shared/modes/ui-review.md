@@ -32,7 +32,7 @@ Crop evidence to the problem area and keep the full screenshot next to it.
 
 Font size largest (Dynamic Type on iOS), display size largest, dark mode, landscape, RTL language.
 Use `adt env --font-scale 2.0 --dark on --orientation landscape --rtl on` or `idt env --text-size accessibility-extra-extra-extra-large --dark on`: they record the original settings, and `env --reset` or `session end` restores them.
-On a personal phone each of these is a system-setting change: ask first and pass the approval (`--approval`).
+On a test device or emulator they need no approval; on a personal phone each is listed in the plan, and Go approves them (`--approval "session plan: ..."`).
 
 ## Screen reader (optional)
 

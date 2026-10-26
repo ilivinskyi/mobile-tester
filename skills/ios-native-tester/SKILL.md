@@ -17,7 +17,7 @@ Questions to the user: use your agent's question tool when it has one (AskUserQu
 A simulator runs builds made for it (`.app` from `xcodebuild -sdk iphonesimulator`), not App Store apps or `.ipa` files; built-in apps (Reminders, Contacts, ...) are always there.
 Real-device support is new (tried on one iPhone, over USB and Wi-Fi): say so when the user picks a device. Before typing on a device, check that it uses Apple's keyboard; with another one, ask the user to switch for the session.
 A real device runs App Store apps already on it and signed device builds (`.app`, or the `.app` inside an `.ipa`); it needs the one-time setup in the `ios-device` skill (pairing, Developer Mode, UI Automation, the user's signing team). That setup is the user's to do: tell them each step and wait.
-A real device counts as personal unless the device inventory says `personal: false` (and is treated as such until the user says otherwise); `kind: physical` and `personal` go into the report.
+A real device counts as personal unless your device list says it's a test device (`idt devices --save UDID --name NAME --test`); `kind: physical` and `personal` go into the report.
 
 ## Session flow
 
@@ -31,13 +31,12 @@ Work through these phases in order and keep the user's task list in step with th
    - Runner not built: `idt runner build` (about a minute, once per Xcode version); for a device `idt -s UDID runner build --team TEAMID` with the team id the user gave you (ask; never pick one). `idt` starts the runner itself when a command needs it (about 15 s on a simulator, longer on a device).
 2. Read `.mobile-tester/config.yaml` in the project.
    If it doesn't exist, run onboarding first: [onboarding.md](../mobile-tester-shared/onboarding.md).
-3. Note whether autopilot is on. In autopilot, apply the defaults from [autopilot.md](../mobile-tester-shared/autopilot.md) instead of asking at the decision points listed there.
-   Guardrails are never automatic.
+3. Note whether autopilot is on (the default). With autopilot, the session plan's Go is the last question until the wrap-up: follow [autopilot.md](../mobile-tester-shared/autopilot.md) for decisions, never-done actions, grants, approvals and which questions may still be asked.
 
-### 2. Session interview
+### 2. Session plan
 
-Ask the questions in [session-interview.md](../mobile-tester-shared/session-interview.md), skipping what the arguments or the config already answer.
-End with a one-paragraph session plan (charter, mode, simulator or device, build, start state, time box, evidence) and wait for the user's go, unless autopilot is on.
+Follow [session-plan.md](../mobile-tester-shared/session-plan.md): fill the plan from the request, the profile and the config, ask only for real gaps (one round), show the plan, and ask Go, Add notes, Cancel or Restart.
+Start nothing on the device before Go.
 Memory mode is Android only for now: offer explore mode on the same flows instead.
 
 ### 3. Preparation
@@ -88,7 +87,8 @@ Judging behaviour:
 - Expected behaviour comes from the app profile's `about` (description, main flows, rules, glossary), the ticket, and what the app itself says on screen. Nothing else defines "correct".
 - Don't bring in checks that belong to a different kind of app. Test ideas follow this app's flows and rules, plus the universal ones (crashes, data loss, wrong or misleading messages, state that doesn't persist, accessibility, layout).
 - iOS conventions are part of "what the app says": the left-edge swipe goes back on pushed screens, sheets close by swiping down, destructive actions ask first. An app that breaks one of these without a reason is worth an observation.
-- When you can't tell whether something is a bug because the expected behaviour isn't described, ask the user (or, in autopilot, report it as an observation and write the open question in `notes`). Record any assumption you make in the finding.
+- When you can't tell whether something is a bug because the expected behaviour isn't described, write it as an observation with the open question in `notes`, collect the question with `idt report add RUN open_questions "..."`, and ask it at the wrap-up (with autopilot off, you may ask right away). Record any assumption you make in the finding.
+- Reaching something on the never-done list (paying, ordering, messaging, the profile's `forbidden`) that the plan didn't grant: don't do it and don't ask; note it with `idt report add RUN not_covered "<what, where>"` and test something else.
 
 Problems outside the charter (another screen, an unrelated feature):
 - Never report anything in an area listed in the profile's `outside_scope.not_ready`, not even as an observation.
@@ -102,20 +102,21 @@ While testing:
 - Save evidence with `idt observe --name <id>-<what>` and note the action log time for video clips.
 - A finding that matches an open known issue (same behaviour in the same area): set `"known_issue": "K-n"` and keep it short; don't re-investigate. It shows as "seen again".
 - `CRASH right after this action` in an action's output: the crash watch found a new crash report of the app. Capture evidence (`idt observe --image-only`, `idt crashes`), write the finding at once with the step that triggered it, then follow the `crash_found` decision (default: restart the app and continue).
-- Watch the time box. Tell the user at the halfway point and when it runs out.
+- Watch the time box. Note the halfway point in your progress, and wrap up when it runs out (`time_box_end`).
+- With autopilot, ask nothing mid-run unless testing can't go on at all (device gone, app won't start, a login only the user can do).
 
 ### 5. Wrap-up
 
 1. `idt session end`: it stops the recording and the app log, and builds the report right away when `idt report check` passes (otherwise it lists what to fix). Run the teardown hook if the profile has one.
 2. Cut one clip per bug: `idt clip --from <t of first repro step> --to <t of last> --out RUN/videos/<id>.mp4`, and add it to the finding's evidence.
 3. `idt issues sync RUN --package BUNDLE`: new bugs and accessibility findings join the app's known issues (each with a regression test case draft in `.mobile-tester/apps/<bundle id>/tests/`), and known issues seen again get a sighting.
-4. `idt report check RUN`, fix every problem, then `idt report telemetry RUN`: it records the technical data (agent tokens and cost, time per phase, tool and device activity) in `session.json`, adds a row to `<reports dir>/telemetry.csv` and rebuilds the report.
+4. `idt report check RUN` and fix every problem. When the plan has telemetry on, run `idt report telemetry RUN`: it records the technical data (agent tokens and cost, time per phase, tool and device activity) in `session.json`, adds a row to `<reports dir>/telemetry.csv` and rebuilds the report.
    It reads the newest Claude Code transcript of the project; in another agent pass `--transcript` if it keeps a compatible one, otherwise the report says tokens weren't collected.
    Open `index.html` in a browser (the browser pane in Claude Code) and look at it; in autopilot `report_build` decides, and it never waits for a question.
-5. For each Unconfirmed finding, offer the manual reproduction in [modes/repro.md](../mobile-tester-shared/modes/repro.md): on a simulator the person clicks in Simulator.app, on a device they use it by hand.
-6. Offer Jira: each finding page has Copy title and Copy for Jira buttons, the `bugs/<id>.md` files are paste-ready, and `findings.csv` imports them all through Jira's CSV import. Create issues through the Atlassian connector only when the user explicitly approves each one.
-7. Append what you learned about the app (screen map, quirks) to the app's `notes.md`, after telling the user.
-8. Answer with: where the report is, the findings by severity, known issues seen again, unconfirmed items, and what was not covered.
+5. Ask the collected questions in one round (at most four, the rest in a second): the `open_questions`, the manual reproduction of each Unconfirmed finding ([modes/repro.md](../mobile-tester-shared/modes/repro.md): on a simulator the person clicks in Simulator.app, on a device they use it by hand), and whether to prepare Jira issues. Record each answer (`idt finding update`, `idt report confirm`).
+6. Jira: each finding page has Copy title and Copy for Jira buttons, the `bugs/<id>.md` files are paste-ready, and `findings.csv` imports them all through Jira's CSV import. Create issues through the Atlassian connector only when the user explicitly approves each one.
+7. Append what you learned about the app (screen map, quirks, what a fresh start shows: `reset.after`) to the app's profile and `notes.md`, after telling the user.
+8. Answer with: where the report is, the findings by severity, known issues seen again, unconfirmed items, what was skipped as never done, and what was not covered.
 
 ## Manual checks, now or later
 
@@ -124,10 +125,11 @@ Whenever the user reports trying a finding by hand, in this session or a later o
 It adds an entry to the finding's history, updates the manual count and the status (a reproduced Unconfirmed finding becomes Confirmed), and rebuilds the report.
 Never record a manual check the user didn't report.
 
-## Never automatic, never skipped
+## Never done without the user
 
-- Payments, outgoing messages/posts/reviews, account deletion/logout/password changes, accepting terms or consent: stop and ask.
+The full list and what grants can lift: "Never done" in [autopilot.md](../mobile-tester-shared/autopilot.md). In short:
+- Payments and orders, outgoing messages/posts/reviews, account deletion/logout/password changes, accepting terms or consent, and the profile's `forbidden`: skipped and noted (autopilot) or asked (autopilot off), unless the plan granted it.
 - Signing in to the user's real accounts (Apple ID, iCloud) on the simulator: ask.
 - Anything that needs the user's Apple ID, signing certificates, team id or a prompt on the device (Trust, Developer Mode, trusting the developer): the user does it; ask and wait.
-- On a personal device: installing, uninstalling, clearing app data and changing system settings.
+- On a personal device: installing, uninstalling, clearing app data and changing system settings, only with the plan's approval.
 - Creating Jira issues.

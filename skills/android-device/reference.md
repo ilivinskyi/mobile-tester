@@ -17,7 +17,7 @@ Global options (before or after the command):
 |---|---|
 | `doctor` | adb location and version, other tools, device states |
 | `devices [--json]` | serial, state, physical/emulator, model, and how your device list knows it (test, personal, not saved yet) |
-| `devices --save ID --name NAME --test\|--personal` / `devices --forget ID` | your device list (`~/.mobile-tester/devices.yaml`, every project): a test device's system settings change without approval (still restored at `session end`); a personal or unsaved physical device asks every time |
+| `devices --save ID --name NAME --test\|--personal` / `devices --forget ID` | your device list (`~/.config/mobile-tester/devices.yaml`, every project): a test device's system settings change without approval (still restored at `session end`); a personal or unsaved physical device asks every time |
 | `info [--json]` | model, Android version, screen, density, navigation mode, keyboard, locale, show taps, accessibility services |
 
 ## Observing

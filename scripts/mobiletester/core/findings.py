@@ -20,7 +20,9 @@ SESSION_TEXT = ("title", "subtitle", "summary", "charter", "tester", "mode", "ti
 SESSION_INT = ("time_box_min",)
 # Facts about the app under test that `session start` can't know, such as where the build came from.
 SESSION_APP = ("install_source",)
-SESSION_LISTS = ("worked_well", "coverage", "not_covered", "setup_steps_fast")
+# What the session plan agreed (forbidden, grants, approvals) and the questions kept for the wrap-up.
+SESSION_LISTS = ("worked_well", "coverage", "not_covered", "setup_steps_fast", "forbidden", "grants", "approvals",
+                 "open_questions")
 _EVIDENCE_TYPES = {".png": "screenshot", ".jpg": "screenshot", ".jpeg": "screenshot", ".mp4": "video",
                    ".mov": "video", ".txt": "log", ".log": "log", ".xml": "xml", ".json": "other"}
 

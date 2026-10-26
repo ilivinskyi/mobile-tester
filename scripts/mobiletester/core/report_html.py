@@ -681,6 +681,10 @@ def render_index(session: dict, findings: list[dict], csv: bool = False) -> str:
                        f'<br><span class="sub">first at {_e(g["first"])}</span></td></tr>' for g in logs)
         body.append('<h2>App log</h2><p class="sub">Errors and warnings the app logged during the session, '
                     f'grouped. Not every one is a bug; findings link the ones that are.</p><table>{rows}</table>')
+    if questions := session.get("open_questions"):
+        items = "".join(f"<li>{_e(q)}</li>" for q in questions)
+        body.append('<h2>Questions for you</h2><p class="sub">Things the session could not settle on its own; the '
+                    f'related findings carry them in their notes.</p><ul class="plain">{items}</ul>')
     for key, heading in (("worked_well", "Worked well"), ("coverage", "Covered"), ("not_covered", "Not covered")):
         if session.get(key):
             items = "".join(f"<li>{_e(i)}</li>" for i in session[key])

@@ -8,7 +8,7 @@ Goal: a reliable answer to "does this bug happen, under which exact conditions, 
 
 1. Read the ticket: steps, expected, actual, build, device, attachments.
 2. Write down the preconditions it implies (account state, data, settings, app version) and what it leaves open.
-3. Ask the user about gaps that change the setup (logged in or not, which build); guess nothing that matters.
+3. Gaps that change the setup (logged in or not, which build) go into the session plan's question round, before Go; guess nothing that matters.
 
 ## 2. Set up a known state
 

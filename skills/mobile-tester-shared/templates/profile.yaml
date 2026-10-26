@@ -47,6 +47,11 @@ checks: []                    # scripts in checks/, e.g. ["logcat-errors"] (Andr
 
 risky_areas: []               # e.g. [account settings, data deletion]: extra caution and guardrails
 
+# What a test must never do in this app, on top of the standard never-done list in autopilot.md.
+forbidden: []                 # e.g. ["place an order", "send a message to a seller"]
+# What is normally never done but is fine in this app, for every session.
+grants: []                    # e.g. ["log out and back in"]
+
 # Problems noticed outside the session's charter (another screen, an unrelated feature).
 outside_scope:
   report: true                # true: listed in their own report section, not counted as bugs; false: ignored

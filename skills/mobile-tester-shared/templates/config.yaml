@@ -19,8 +19,10 @@ jira:
 severity_notes: ""          # team additions to the standard severity scale, if any
 
 # Devices are saved per user, for every project, with `adt devices --save` / `idt devices --save`
-# (~/.mobile-tester/devices.yaml). A `devices:` list here still works for older projects.
+# (~/.config/mobile-tester/devices.yaml). A `devices:` list here still works for older projects.
 
 autopilot:
-  enabled: false
-  decisions: {}             # see autopilot.md; a missing key means "ask"
+  enabled: true             # after the session plan's Go, no questions until the wrap-up (see autopilot.md)
+  decisions: {}             # only what differs from the defaults in autopilot.md
+
+telemetry: false            # record time, tokens and activity per run (also offered in each session plan)

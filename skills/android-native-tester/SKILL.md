@@ -23,17 +23,16 @@ Work through these phases in order and keep the user's task list in step with th
 1. Run `adt doctor`. Stop and help the user if no device is ready.
 2. Read `.mobile-tester/config.yaml` in the project.
    If it doesn't exist, run onboarding first: [onboarding.md](../mobile-tester-shared/onboarding.md).
-3. Note whether autopilot is on. In autopilot, apply the defaults from [autopilot.md](../mobile-tester-shared/autopilot.md) instead of asking at the decision points listed there.
-   Guardrails are never automatic.
+3. Note whether autopilot is on (the default). With autopilot, the session plan's Go is the last question until the wrap-up: follow [autopilot.md](../mobile-tester-shared/autopilot.md) for decisions, never-done actions, grants, approvals and which questions may still be asked.
 
-### 2. Session interview
+### 2. Session plan
 
-Ask the questions in [session-interview.md](../mobile-tester-shared/session-interview.md), skipping what the arguments or the config already answer.
-End with a one-paragraph session plan (charter, mode, device, build, start state, time box, evidence) and wait for the user's go, unless autopilot is on.
+Follow [session-plan.md](../mobile-tester-shared/session-plan.md): fill the plan from the request, the profile and the config, ask only for real gaps (one round), show the plan, and ask Go, Add notes, Cancel or Restart.
+Start nothing on the device before Go.
 
 ### 3. Preparation
 
-1. Device: `adt -s SERIAL info`. Check it matches the device inventory; note `personal: true` devices.
+1. Device: `adt -s SERIAL info`. `adt devices` shows how your device list knows it (test device, personal phone, not saved yet).
 2. App profile: read `.mobile-tester/apps/<package>/profile.yaml` (above all its `about` block) and `notes.md`, and list the open known issues with `adt issues list --package PKG`. Quirks and known issues save time: a known issue found again is linked, not re-reported.
 3. Build:
    - Installed: compare `adt app info PKG` with the version the user expects.
@@ -43,7 +42,7 @@ End with a one-paragraph session plan (charter, mode, device, build, start state
 5. Start the session: `adt session start --package PKG --mode MODE --charter "..." [--ticket KEY] --record --logcat`.
    Without `--dir` the run folder is `<reports dir from config.yaml>/<YYYY-MM-DD>-<app>-<mode>[-<ticket>]`, a new one per session; it prints the folder.
    It also fills the title and the tester from the profile and config. Then set the ticket, the time box and where the build came from with `adt report set RUN ticket|time_box_min|install_source VALUE` (see [report-standard.md](../mobile-tester-shared/report-standard.md)).
-6. Ask whether to turn on "Show taps" for this recording (always ask; on a phone pass the approval to `adt touches on --approval`).
+6. "Show taps" as `show_taps` says (default: on for test devices and emulators; on a personal phone only when the plan approved it, with `adt touches on --approval "session plan: ..."`).
 7. Performance baseline (unless the user turned it off): `adt perf startup PKG` (three cold starts, each after a force-stop), then `adt perf frames PKG --reset`.
 8. Bring the app to the start state (below). This also logs in when the profile's login needs it.
 
@@ -80,7 +79,8 @@ Follow the mode guide:
 Judging behaviour:
 - Expected behaviour comes from the app profile's `about` (description, main flows, rules, glossary), the ticket, and what the app itself says on screen. Nothing else defines "correct".
 - Don't bring in checks that belong to a different kind of app. Test ideas follow this app's flows and rules, plus the universal ones (crashes, data loss, wrong or misleading messages, state that doesn't persist, accessibility, layout).
-- When you can't tell whether something is a bug because the expected behaviour isn't described, ask the user (or, in autopilot, report it as an observation and write the open question in `notes`). Record any assumption you make in the finding.
+- When you can't tell whether something is a bug because the expected behaviour isn't described, write it as an observation with the open question in `notes`, collect the question with `adt report add RUN open_questions "..."`, and ask it at the wrap-up (with autopilot off, you may ask right away). Record any assumption you make in the finding.
+- Reaching something on the never-done list (paying, ordering, messaging, the profile's `forbidden`) that the plan didn't grant: don't do it and don't ask; note it with `adt report add RUN not_covered "<what, where>"` and test something else.
 
 Problems outside the charter (another screen, an unrelated feature):
 - Never report anything in an area listed in the profile's `outside_scope.not_ready`, not even as an observation.
@@ -95,7 +95,8 @@ While testing:
 - A finding that matches an open known issue (same behaviour in the same area): set `"known_issue": "K-n"` and keep it short; don't re-investigate. It shows as "seen again".
 - `CRASH right after this action` in an action's output: the crash watch caught it at that step. Capture evidence (`adt observe`, `adt logcat crashes --package PKG`), write the finding at once with the step that triggered it, then follow the `crash_found` decision (default: restart the app and continue).
 - `app log: N new issue(s)` in an action's output: the app logged errors or warnings (errors, caught exceptions, network failures, StrictMode, long frame drops, out of memory) right after that action. Many apps log harmless errors, so judge it: when it explains what you see, or it's an `OutOfMemoryError`, quote the line in the finding and save `logs/logcat.txt` as evidence; otherwise carry on. The wrap-up summary lists them all anyway.
-- Watch the time box. Tell the user at the halfway point and when it runs out.
+- Watch the time box. Note the halfway point in your progress, and wrap up when it runs out (`time_box_end`).
+- With autopilot, ask nothing mid-run unless testing can't go on at all (device gone, app won't start, a login only the user can do).
 
 ### 5. Wrap-up
 
@@ -103,13 +104,13 @@ While testing:
 2. `adt session end`: it stops capture and builds the report right away when `adt report check` passes (otherwise it lists what to fix). Run the teardown hook if the profile has one, and `adt touches off` if you turned it on.
 3. Cut one clip per bug: `adt clip --from <t of first repro step> --to <t of last> --out videos/<id>.mp4`, and add it to the finding's evidence.
 4. `adt issues sync RUN --package PKG`: new bugs and accessibility findings join the app's known issues (each with a regression test case draft in `.mobile-tester/apps/<package>/tests/`), and known issues seen again get a sighting.
-5. `adt report check RUN`, fix every problem, then `adt report telemetry RUN`: it records the technical data (agent tokens and cost, time per phase, tool and device activity) in `session.json`, adds a row to `<reports dir>/telemetry.csv` and rebuilds the report.
+5. `adt report check RUN` and fix every problem. When the plan has telemetry on, run `adt report telemetry RUN`: it records the technical data (agent tokens and cost, time per phase, tool and device activity) in `session.json`, adds a row to `<reports dir>/telemetry.csv` and rebuilds the report.
    It reads the newest Claude Code transcript of the project; in another agent pass `--transcript` if it keeps a compatible one, otherwise the report says tokens weren't collected.
    Open `index.html` in a browser (the browser pane in Claude Code) and look at it; in autopilot `report_build` decides, and it never waits for a question.
-6. For each Unconfirmed finding, offer the manual reproduction in [modes/repro.md](../mobile-tester-shared/modes/repro.md).
-7. Offer Jira: each finding page has Copy title and Copy for Jira buttons, the `bugs/<id>.md` files are paste-ready, and `findings.csv` imports them all through Jira's CSV import. Create issues through the Atlassian connector only when the user explicitly approves each one.
-8. Append what you learned about the app (screen map, quirks) to the app's `notes.md`, after telling the user.
-9. Answer with: where the report is, the findings by severity, known issues seen again, unconfirmed items, and what was not covered.
+6. Ask the collected questions in one round (at most four, the rest in a second): the `open_questions`, the manual reproduction of each Unconfirmed finding ([modes/repro.md](../mobile-tester-shared/modes/repro.md)), and whether to prepare Jira issues. Record each answer (`adt finding update`, `adt report confirm`).
+7. Jira: each finding page has Copy title and Copy for Jira buttons, the `bugs/<id>.md` files are paste-ready, and `findings.csv` imports them all through Jira's CSV import. Create issues through the Atlassian connector only when the user explicitly approves each one.
+8. Append what you learned about the app (screen map, quirks, what a fresh start shows: `reset.after`) to the app's profile and `notes.md`, after telling the user.
+9. Answer with: where the report is, the findings by severity, known issues seen again, unconfirmed items, what was skipped as never done, and what was not covered.
 
 ## Manual checks, now or later
 
@@ -118,9 +119,10 @@ Whenever the user reports trying a finding by hand, in this session or a later o
 It adds an entry to the finding's history, updates the manual count and the status (a reproduced Unconfirmed finding becomes Confirmed), and rebuilds the report.
 Never record a manual check the user didn't report.
 
-## Never automatic, never skipped
+## Never done without the user
 
-- Payments, outgoing messages/posts/reviews, account deletion/logout/password changes, accepting terms or consent: stop and ask.
-- System-setting changes and clearing app data on a personal phone: ask.
-- Installing a build that fails the checks in step 3.
-- Creating Jira issues.
+The full list and what grants can lift: "Never done" in [autopilot.md](../mobile-tester-shared/autopilot.md). In short:
+- Payments and orders, outgoing messages/posts/reviews, account deletion/logout/password changes, accepting terms or consent, and the profile's `forbidden`: skipped and noted (autopilot) or asked (autopilot off), unless the plan granted it.
+- System-setting changes and clearing app data on a personal phone: only with the plan's approval. Test devices and emulators need none.
+- Installing a build that fails the checks in step 3: never.
+- Creating Jira issues: only with a yes per issue.

@@ -47,13 +47,12 @@ Modes of `android-native-tester` (guides in its folder, not separate skills): ex
 ## Onboarding and configuration
 
 - Onboarding runs on the first `/android-native-tester` in a project, and again when asked.
-- Covers: tester and team defaults, device inventory, app profiles, autopilot.
+- Three open questions (what the app is about, how to test it, what must never happen); the rest is inferred from the answers and detection, with one round of questions for real gaps.
+- Devices are saved per user in `~/.config/mobile-tester/devices.yaml` (test device or personal phone), for every project.
 - Each app profile has an `about` block written from the user's own description: purpose, users, main flows, rules, roles, integrations, out-of-scope areas, glossary.
   Expected behaviour, test ideas and severity come from it and the ticket; the skills carry no assumptions about any app domain.
-- Autopilot: one list of every decision the skill would otherwise ask about, each with a default the user confirms or changes.
-  Guardrails (payments, messages, account changes, accepting terms, system settings on a personal phone) are never automatic.
-- Per-session interview at every run: ticket and context, mode, device, build installed or to install, start state, focus, time budget.
-  In autopilot it only asks what has no default.
+- Every session shows a plan (app, device, mode, charter, time box, extra checks, never-done list, approvals needed on a personal phone, telemetry) with Go, Add notes, Cancel or Restart; a request that says what to test asks nothing before the plan.
+- Autopilot (default on): after Go no questions until the wrap-up, except when testing can't go on at all. Never-done actions (payments, orders, messages, account changes, accepting terms, the profile's `forbidden`) are skipped and noted unless the plan granted them; system changes on a personal phone need the plan's approval; test devices need none. Other questions are collected and asked at the wrap-up.
 - Files: `.mobile-tester/config.yaml` (team defaults, devices, autopilot), `.mobile-tester/apps/<package or bundle id>/profile.yaml`, `notes.md`, `hooks/`, `checks/`, gitignored `secrets.local.yaml`, and `.mobile-tester/state/` (device state, gitignored). One config serves both platforms.
 - App scripts: lifecycle hooks (setup, reset, teardown), login helper, custom checks, app knowledge notes.
 

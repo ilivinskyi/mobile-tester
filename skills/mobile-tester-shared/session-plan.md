@@ -1,45 +1,61 @@
-# Session interview
+# Session plan
 
 `dt` is the platform's device tool: `adt` on Android, `idt` on iOS.
 
-Asked at the start of every session, after onboarding.
-Ask with your question tool (AskUserQuestion in Claude Code) or as a numbered list in chat, at most four questions at a time, recommended option first.
-Skip a question when the command arguments, the config, or the app profile already answer it.
-In autopilot, ask only the questions marked **always**; the rest take the defaults shown.
+Every session starts here (after onboarding, the first time). It ends with one question, and after Go the session runs without stopping until the wrap-up (see [autopilot.md](autopilot.md)).
 
-## Questions
+## 1. What to test
 
-1. **What are we testing?** (always, unless given as an argument)
-   The app by name or package (bundle id on iOS), or a build file: APK, XAPK or APKS on Android, a simulator `.app` on iOS.
-   For a name or package, run `dt app find "<what the user typed>"`:
-   - `match:` with one app: confirm it in one line ("Testing Gmail, com.google.android.gm 2026.09.28") and continue.
-   - Several candidates: show the numbered list (name, package, version or kind) and let the user pick.
-   - No match: say so, and ask whether the app needs to be installed from a file or the store first.
-   Match the package to an app profile; offer to create one if missing.
-   **If the profile has no `about.description`** (always, even in autopilot): ask the user to describe the app and how it works, as in "Describe the app" in [onboarding.md](onboarding.md), and save it to the profile.
-   If they decline, write in `session.json` `not_covered` that expected behaviour was inferred without an app description.
-2. **Ticket and context.** (always)
-   A Jira key or URL, or "no ticket".
-   - If Atlassian (Jira) tools are available in this session, read the ticket: summary, description, acceptance criteria, attachments list.
-   - If the connector exists but isn't authorized, tell the user to authorize it via `/mcp`, and meanwhile ask them to paste the description.
-   - Otherwise ask the user to paste the description.
-   Also ask for any extra context: what changed in this build, known risks, what the developer is worried about.
-3. **Mode.** Default: explore, or repro when the ticket is a bug report, or test-case when a test-case file was given, or retest when the user mentions a new build with fixes ("check what's fixed in 1.2"), or memory when the user asks about leaks, memory growth or the app getting slower over time.
-4. **Charter and focus.** What to cover and what is out of scope. Default: derived from the ticket; for explore without a ticket, the first entries of `about.main_flows`. `about.not_in_scope` is always out of scope.
-5. **Device.** Default: the only ready device (booted simulator on iOS), or the inventory's non-personal one.
-   Mention when the chosen device is personal (stricter guardrails) and when an emulator or simulator would be better (config stress, data clearing).
-6. **Build.** Is the build to test already installed (default when a matching version is installed) or should it be installed from a file?
-7. **Login state.** Default from the profile: secrets file, guest, or the user logs in on the device before the session.
-8. **Time box.** Default from the config.
-9. **Evidence.** Screen recording, the app log (logcat on Android, the unified log on iOS) and the crash watch are on by default; on Android also performance numbers (cold start, rendering, memory). "Show taps" (Android) is asked separately in preparation.
-10. **Start state.** Reset the app before the session and before every reproduction attempt, test case or retested issue? Default: the profile's `reset.strategy` (restart when the profile has none).
-    Options: the profile's strategy, restart only, or keep the current state (the user prepared it by hand; `none` for this session).
-    **Always** ask when the strategy is clear-data on a personal device: clearing needs an explicit yes, valid for this session.
-    If the profile has no `reset` block, ask as in "Start state" in [onboarding.md](onboarding.md) and save the answer.
-11. **App scripts.** Run the profile's setup hook (default yes when it exists). Offer to add scripts when the user describes a repeatable setup they do by hand.
+- **When the request already says it** (the app and what to do: "explore Jumbo for 30 minutes", a ticket, a test-case file, "check what's fixed in 1.2"): ask nothing and go to the plan.
+- **Otherwise** ask one open question: "What should I test this time?"
 
-## Session plan
+Fill in the rest from the answer, the app profile, the config and the device list:
 
-Summarise in one paragraph, then wait for a go (in autopilot, continue right away):
-charter, mode, app and build, device, login state, start state, time box, evidence, hooks, ticket.
-Write the same values into `session.json` after `dt session start`.
+| Item | From |
+|---|---|
+| App | the name or package: `dt app find "<what the user typed>"`. One `match:` is confirmed in the plan; several candidates or none are a gap (pick one, or install a build from a file) |
+| Ticket | a key or URL in the request: read it with Jira tools when available (summary, description, acceptance criteria); otherwise the user's paste |
+| Mode | explore by default; repro for a bug ticket; test-case for a test-case file; retest when they mention a new build with fixes; memory for leaks or slowness over time; ui-review for layout or accessibility |
+| Charter | the ticket, or what they asked for; for explore without either, the first entries of `about.main_flows`. `about.not_in_scope` is always out |
+| Device | the only ready one, else a saved test device; a personal phone only when it's the only choice or they asked for it |
+| Build | installed when a matching version is; a file path in the request means installing it |
+| Login, start state | the profile's `login` and `reset.strategy` |
+| Time box | from the request, else the config's default |
+| Extra checks | what they asked for, plus the mode guide's usual ones (explore: offline, the app killed in the background, a permission taken away; ui-review: font size, dark mode, landscape, RTL) |
+| Telemetry | on when they asked for numbers or it's a benchmark run, else the config's default (off) |
+
+A missing `about.description` in the profile is a gap: ask the first onboarding question ("What is your app about?") and save the answer.
+Gaps go into one round of at most four questions, before the plan.
+
+## 2. The plan
+
+Show it as a short block, values inferred rather than given marked with "(assumed)":
+
+- **App and build:** name, package, version, installed or from a file.
+- **Device:** name, test device or personal phone, emulator or simulator.
+- **Mode, charter, time box.**
+- **Start state and login:** reset strategy, login method.
+- **Evidence:** screen recording, the app log, crash watch, performance (Android), "Show taps" on a test device or emulator.
+- **Extra checks:** offline, background kill, permissions, config stress, links.
+- **Never done:** the standard list in [autopilot.md](autopilot.md) plus the profile's `forbidden`; reaching one is skipped and noted in the report.
+- **Allowed this session:** the profile's `grants`, and any new ones from the request.
+- **Needs your yes (personal phone only):** every system change the plan would make (offline, font size, dark mode, "Show taps", clearing app data, installing a build). On a test device or emulator this line is left out: nothing there needs a yes.
+- **Questions:** asked only if testing can't go on without the answer; everything else is collected and asked at the end.
+- **Telemetry:** on or off. **Files:** the `.gitignore` lines, on the first session.
+
+Then one question with four options:
+1. **Go:** the plan, its approvals and grants count as the user's yes for this session. Start.
+2. **Add notes:** free text that changes the plan (focus, things to skip, extra checks, grants). Update the plan, show it again with the same four options.
+3. **Cancel:** stop here. Touch neither the device nor the run folder.
+4. **Restart:** drop the plan and ask "What should I test this time?" again (on the first session: the three onboarding questions).
+
+With autopilot off, every later decision asks as before; the plan still comes first.
+
+## 3. After Go
+
+Start the session and write the plan into the run, so the report shows what was agreed:
+- `dt report set RUN charter|ticket|time_box_min|install_source VALUE`
+- `dt report add RUN forbidden "<action>" ...`, `dt report add RUN grants "<action>" ...`, and on a personal phone `dt report add RUN approvals "<system change>" ...`
+- Add the `.gitignore` lines when the plan listed them.
+
+Pass approvals to the tools as `--approval "session plan: <what was approved>"`; they count only for this session.

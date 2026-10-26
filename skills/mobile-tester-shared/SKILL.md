@@ -14,9 +14,9 @@ Both take the same command names and options where the platform has the concept;
 
 | File | Content |
 |---|---|
-| [onboarding.md](onboarding.md) | First use in a project: tester, devices, app profiles, start state, autopilot |
-| [session-interview.md](session-interview.md) | The questions at the start of every session |
-| [autopilot.md](autopilot.md) | Decisions autopilot takes, and what is never automatic |
+| [onboarding.md](onboarding.md) | First use in a project: three open questions, the rest inferred, one round for the gaps |
+| [session-plan.md](session-plan.md) | Every session: what to test, the plan, and Go, Add notes, Cancel or Restart |
+| [autopilot.md](autopilot.md) | After Go: decisions, never-done actions, grants, approvals, which questions may still be asked |
 | [report-standard.md](report-standard.md) | Run folder, `session.json`, `findings.json`, severity, writing findings |
 | [modes/](modes/) | explore, test-case, repro, ui-review, retest, memory |
 | [templates/](templates/) | config, app profile, notes, test case, hook and check examples |

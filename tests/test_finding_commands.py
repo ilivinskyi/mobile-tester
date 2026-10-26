@@ -81,3 +81,18 @@ def test_autopilot_decision_is_logged_for_people_and_the_report(run, capsys):
     log = (run / "logs" / "decisions.md").read_text(encoding="utf-8").splitlines()
     assert len(log) == 2 and log[0].startswith("- ") and "consent_banners = reject_non_essential" in log[0]
     assert "cookie banner on first launch" in log[0]
+
+
+def test_plan_lists_and_open_questions_reach_the_report(run):
+    assert main(["report", "add", str(run), "forbidden", "place an order"]) == 0
+    assert main(["report", "add", str(run), "grants", "log out and back in"]) == 0
+    assert main(["report", "add", str(run), "approvals", "airplane mode"]) == 0
+    assert main(["report", "add", str(run), "open_questions", "Should the basket keep items after logout?"]) == 0
+    data = json.loads((run / "session.json").read_text(encoding="utf-8"))
+    assert data["forbidden"] == ["place an order"] and data["open_questions"]
+    from mobiletester.core import report_html, report_text
+    rows = dict(report_text.environment(dict(data, device={}, app={})))
+    assert rows["Never done (agreed in the plan)"] == "place an order"
+    assert rows["Allowed by the user"] == "log out and back in" and rows["System changes approved"] == "airplane mode"
+    page = report_html.render_index(dict(data, title="T"), [])
+    assert "<h2>Questions for you</h2>" in page and "Should the basket keep items after logout?" in page

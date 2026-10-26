@@ -317,16 +317,19 @@ For an iOS app, say so ("on the iPhone simulator", "on my iPhone"); everything b
 In Claude Code, `/android-native-tester` and `/ios-native-tester` start the same skills.
 
 1. **Onboarding (first time only).**
-   Your name for reports, the reports folder, an optional Jira project, your devices (and which one is personal), an app profile with a description of your app in your own words, whether to report problems noticed outside a session's scope (and which unfinished areas to never report), and whether to use autopilot.
-   Everything is saved in `.mobile-tester/` so later sessions start straight away; one setup serves both platforms.
-2. **Session interview.**
-   Which app (type its name as on your phone, or its package id; the agent finds it on the device and lets you pick when several match) or build file, a ticket or context, the mode, the charter, the device, the time box, and what evidence to collect.
-   The skill sums it up as a plan and waits for your go.
+   Three open questions: what your app is about, how you want it tested, and what must never happen.
+   The rest is filled in from your answers and from what the tools detect (devices, the installed app, your name); only real gaps get one more round of questions, such as whether a phone is a test device.
+   Everything is saved in `.mobile-tester/` (devices in `~/.config/mobile-tester/devices.yaml`, for every project), so later sessions start straight away; one setup serves both platforms.
+2. **The plan.**
+   When your request already says what to test, there are no questions; otherwise one: "What should I test this time?"
+   The plan shows the app, device, mode, charter, time box, extra checks, what will never be done, and on a personal phone which system changes need your yes.
+   You pick **Go**, **Add notes**, **Cancel** or **Restart**.
+   After Go, autopilot runs the session without stopping: forbidden actions are skipped and noted, and questions wait for the wrap-up unless testing can't go on without the answer.
 3. **Preparation.**
    Device check, build check and install when needed, your setup hooks, a reset to the start state, then screen recording and log capture start.
 4. **Testing** in the chosen mode, writing findings as it goes.
 5. **Wrap-up.**
-   A video clip per bug, the report checked and built, an offer to reproduce unconfirmed bugs by hand, Jira drafts, and new knowledge about the app added to its notes.
+   A video clip per bug, the report checked and built, the collected questions and an offer to reproduce unconfirmed bugs by hand in one round, Jira drafts, and new knowledge about the app added to its notes.
 
 ### Modes
 

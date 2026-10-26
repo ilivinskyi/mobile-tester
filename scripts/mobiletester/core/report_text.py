@@ -136,6 +136,9 @@ def environment(session: dict) -> list[tuple[str, str]]:
         ("Locale", dev.get("locale")),
         ("Input", session.get("input")),
         ("Setup steps run fast", ", ".join(session.get("setup_steps_fast", [])) or None),
+        ("Never done (agreed in the plan)", "; ".join(session.get("forbidden", [])) or None),
+        ("Allowed by the user", "; ".join(session.get("grants", [])) or None),
+        ("System changes approved", "; ".join(session.get("approvals", [])) or None),
         ("Decided by autopilot", "; ".join(f"{d['key']} = {d['value']}" + (f" ({d['why']})" if d.get("why") else "")
                                            for d in session.get("decisions", [])) or None),
     ]

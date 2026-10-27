@@ -155,6 +155,59 @@ def test_history_known_issue_and_performance_are_shown(run, tmp_path):
     assert f"- 2026-10-24 09:12 {sentence}" in md and "**Known issue:** K-3 (seen again)" in md
 
 
+def _check(result, tries, note="", time="2026-10-24T09:12:00+02:00"):
+    entry = {"time": time, "action": "manual-check", "result": result, "tries": tries, "by": "Ihor",
+             "build": "1.0 (10)", "device": "Pixel 7a"}
+    return dict(entry, note=note) if note else entry
+
+
+def test_manual_verdict_follows_the_checks():
+    yes, no = _check("reproduced", "2/2"), _check("not-reproduced", "0/1")
+    assert report_text.manual_verdict([], None) == "none"
+    assert report_text.manual_verdict([yes], (2, 2)) == "yes"
+    assert report_text.manual_verdict([no], (0, 1)) == "no"
+    # No history entries, only the count the tester wrote in the finding.
+    assert report_text.manual_verdict([], (1, 1)) == "yes"
+    assert report_text.manual_verdict([], (0, 2)) == "no"
+    assert report_text.manual_verdict([], (0, 0)) == "none"
+    # A person reproduced it once: the bug is real, even if a later try failed.
+    assert report_text.manual_verdict([yes, no], (2, 3)) == "yes"
+    assert report_text.manual_verdict([no, no], (0, 2)) == "no"
+
+
+def test_manual_check_is_marked_on_the_list_and_on_top_of_the_page(run):
+    directory = run([
+        _bug(severity="Major", history=[_check("reproduced", "2/2", note="Also on the tablet layout.")],
+             reproducibility={"automated": "2/2", "manual": "2/2"}),
+        _bug(id="B2", status="Unconfirmed", severity="Major", reproducibility={"automated": "3/3", "manual": "0/1"},
+             history=[_check("not-reproduced", "0/1")]),
+        _bug(id="B3", severity="Minor", reproducibility={"automated": "2/2"}),
+        _bug(id="B4", status="Unconfirmed", severity="Major",
+             reproducibility={"automated": "3/3", "manual": "not tried"}),
+    ])
+    assert report.check(directory) == []
+    report.build(directory)
+    index = (directory / "index.html").read_text(encoding="utf-8")
+    assert 'data-id="B1"' in index and 'data-manual="yes"' in index and 'data-manual="no"' in index
+    assert index.count('class="pill manual manual-yes"') == 1 and index.count('class="pill manual manual-no"') == 1
+    assert "<legend>Manual check</legend>" in index and "Not checked by hand" in index
+
+    b1 = (directory / "bugs" / "B1.html").read_text(encoding="utf-8")
+    block = b1[b1.index('class="manual-check manual-yes"'):]
+    assert "Reproduced by hand" in block and "2 of 2 tries by Ihor on 2026-10-24, Pixel 7a, build 1.0 (10)." in block
+    assert "Also on the tablet layout." in block
+    assert b1.index("manual-check") < b1.index('class="bug-grid"')
+
+    b2 = (directory / "bugs" / "B2.html").read_text(encoding="utf-8")
+    assert "Not reproduced by hand" in b2 and "Automation still reproduces it (automated 3/3, manual 0/1)" in b2
+    assert "Needs a manual reproduction" not in b2
+
+    b3 = (directory / "bugs" / "B3.html").read_text(encoding="utf-8")
+    assert 'class="manual-check manual-none"' in b3 and "Only automation reproduced this (automated 2/2)." in b3
+    b4 = (directory / "bugs" / "B4.html").read_text(encoding="utf-8")
+    assert "Needs a manual reproduction" in b4 and 'class="manual-check' not in b4
+
+
 def test_retest_results_use_bug_lifecycle_words(run, tmp_path):
     session = dict(SESSION, mode="retest", test_results=[
         {"case": "K-3 Field resets after rotation", "issue": "K-3", "result": "pass"},

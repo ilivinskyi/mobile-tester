@@ -70,6 +70,41 @@ def repro(f: dict) -> str:
     return ", ".join(p for p in parts if p)
 
 
+MANUAL_NAMES = {"yes": "Reproduced by hand", "no": "Not reproduced by hand", "none": "Not checked by hand"}
+
+
+def _tries(text) -> tuple[int, int] | None:
+    parts = str(text or "").split("/")
+    return (int(parts[0]), int(parts[1])) if len(parts) == 2 and all(p.strip().isdigit() for p in parts) else None
+
+
+def manual_verdict(checks: list[dict], tries: tuple[int, int] | None) -> str:
+    """'yes', 'no' or 'none' for a finding's manual checks.
+
+    checks: its `history` entries with action manual-check, oldest first (result reproduced/not-reproduced).
+    tries: its total `reproducibility.manual` as (reproduced, attempted), or None when not stated.
+
+    One reproduction by a person is enough for "yes", whatever later checks found: it shows the bug is real,
+    the same rule that turns Unconfirmed into Confirmed. A finding without history entries falls back to the
+    count the tester wrote.
+    """
+    if checks:
+        return "yes" if any(c.get("result") == "reproduced" for c in checks) else "no"
+    if not tries or tries[1] == 0:
+        return "none"
+    return "yes" if tries[0] > 0 else "no"
+
+
+def manual_check(f: dict) -> dict:
+    """What a person found by hand: {"verdict": yes/no/none, "label", "latest": newest manual-check entry or None,
+    "tries": total manual count text or ""}."""
+    checks = [h for h in f.get("history") or [] if h.get("action") == "manual-check"]
+    total = (f.get("reproducibility") or {}).get("manual") or ""
+    verdict = manual_verdict(checks, _tries(total))
+    return {"verdict": verdict, "label": MANUAL_NAMES[verdict], "latest": checks[-1] if checks else None,
+            "tries": total if _tries(total) else ""}
+
+
 def summary(f: dict) -> str:
     """One line for the list: the finding's own summary, or the start of what was seen."""
     text = f.get("summary") or f.get("actual") or f.get("notes") or ""

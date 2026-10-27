@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 
 from .report_text import (
+    MANUAL_NAMES,
     RETEST_WORDS,
     SEVERITIES,
     SEVERITY_ORDER,
@@ -17,6 +18,7 @@ from .report_text import (
     TYPES,
     environment,
     history_sentence,
+    manual_check,
     outside,
     performance_rows,
     repro,
@@ -45,6 +47,7 @@ _PLAY = "M8 5v14l11-7z"
 _SEARCH = "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4"
 _FILTER = "M4 6h16M7 12h10M10 18h4"
 _DOWNLOAD = "M12 4v11M7 10l5 5 5-5M5 20h14"
+_CHECK = "M5 12.5l4.5 4.5L19 7.5"
 
 
 # --- order -----------------------------------------------------------------------------------
@@ -132,6 +135,9 @@ border-radius:999px;white-space:nowrap;background:var(--chip);color:var(--chip-i
 .swatch.sev-Trivial,.spectrum .sev-Trivial,.legend .sev-Trivial{background:var(--trivial-mark)}
 .pill.status-Unconfirmed{background:transparent;color:var(--unconfirmed);box-shadow:inset 0 0 0 1.5px currentColor}
 .pill.status-Retracted{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1.5px currentColor}
+.pill.manual{gap:4px;background:transparent;box-shadow:inset 0 0 0 1.5px currentColor}
+.pill.manual-yes{color:var(--ok)}.pill.manual-no{color:var(--muted)}
+.pill.manual svg{width:12px;height:12px}
 /* buttons */
 .btn{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:8px 14px;border-radius:8px;
 border:1px solid var(--field);background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;
@@ -235,6 +241,14 @@ margin:-8px 0 16px}
 max-width:72ch}
 .callout h2{margin:0 0 4px;font-size:15px}
 .callout p{margin:0}
+.manual-check{display:flex;gap:10px;align-items:flex-start;margin:22px 0 0;padding:14px 16px;
+border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:10px;background:var(--surface);
+max-width:72ch}
+.manual-check.manual-yes{border-left-color:var(--ok)}
+.manual-check>svg{flex:none;margin-top:1px}.manual-check.manual-yes>svg{color:var(--ok)}
+.manual-check>div{display:grid;gap:2px;min-width:0}
+.manual-check h2{margin:0;font-size:15px}.manual-check p{margin:0}
+.manual-check .note{color:var(--ink);white-space:pre-line}.manual-check .more{color:var(--muted);font-size:14px}
 .bug-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,380px);grid-template-areas:"facts evidence";
 gap:0 48px;align-items:start}
 .facts{grid-area:facts;max-width:72ch;min-width:0}
@@ -522,6 +536,10 @@ def _pills(f: dict, severity: bool = True) -> str:
         pills.append(f'<span class="pill status-{f["status"]}">{_e(f["status"])}</span>')
     if outside(f):
         pills.append('<span class="pill">Outside scope</span>')
+    manual = manual_check(f)
+    if manual["verdict"] != "none":
+        pills.append(f'<span class="pill manual manual-{manual["verdict"]}">'
+                     f'{_icon(_CHECK if manual["verdict"] == "yes" else _CLOSE, 12)}{_e(manual["label"])}</span>')
     if seen_again(f):
         pills.append(f'<span class="pill">{_e(f["known_issue"])} seen again</span>')
     elif f.get("known_issue"):
@@ -540,7 +558,7 @@ def _row(f: dict, severity: bool = False) -> str:
     rid = f"r-{fid}"
     text = " ".join(str(f.get(k, "")) for k in ("id", "title", "summary", "actual", "area", "known_issue")).casefold()
     return (f'<li data-id="{fid}" data-type="{_e(f["type"])}" data-sev="{_e(f.get("severity") or "none")}" '
-            f'data-status="{_e(f["status"])}" data-text="{_e(text)}">'
+            f'data-status="{_e(f["status"])}" data-manual="{manual_check(f)["verdict"]}" data-text="{_e(text)}">'
             f'<a class="row" href="bugs/{fid}.html" aria-labelledby="{rid}-id {rid}-t" '
             f'aria-describedby="{rid}-s {rid}-g"><span class="id" id="{rid}-id">{fid}</span>'
             f'<span class="main"><span class="title" id="{rid}-t">{_e(f["title"])}</span>'
@@ -563,7 +581,9 @@ def _toolbar(findings: list[dict], csv: bool) -> str:
     facets = (_facet("type", "Type", live, "type", TYPES, lambda v: TYPE_NAMES[v])
               + _facet("sev", "Severity", live, "severity", (*SEVERITIES, "none"),
                        lambda v: "No severity" if v == "none" else v)
-              + _facet("status", "Status", live, "status", ("Confirmed", "Unconfirmed"), str))
+              + _facet("status", "Status", live, "status", ("Confirmed", "Unconfirmed"), str)
+              + _facet("manual", "Manual check", [dict(f, manual=manual_check(f)["verdict"]) for f in live],
+                       "manual", tuple(MANUAL_NAMES), MANUAL_NAMES.get))
     filter_button = (f'<button type="button" class="btn" id="filter-toggle" aria-expanded="false" '
                      f'aria-controls="filters">{_icon(_FILTER, 18)}Filters'
                      f'<span class="badge" id="filter-count" hidden></span></button>') if facets else ""
@@ -629,6 +649,8 @@ Minor: limited impact. Trivial: cosmetic.</dd>
 <dt>Status</dt><dd>Confirmed: reproduced by a person, or reliably by automation for minor issues.
 Unconfirmed: reproduced only by automation so far; try it by hand before filing.
 Retracted: checked and found not to be a problem; kept so you can see what was ruled out.</dd>
+<dt>Manual check</dt><dd>Whether a person tried the steps by hand: Reproduced by hand or Not reproduced by hand,
+with who, when and their note at the top of the finding page. No mark means nobody has tried it by hand yet.</dd>
 <dt>Filing in Jira</dt><dd>Open a finding, paste Copy title into Summary and Copy for Jira into Description,
 then attach the files listed under Evidence.
 To file everything at once, import the CSV with Jira's CSV import and map Summary, Description, Issue Type,
@@ -765,16 +787,46 @@ def _actions(f: dict, copies: dict[str, str]) -> str:
             f'Use wiki markup for Jira Server and Data Center.</p>{templates}')
 
 
+def _manual_block(f: dict, manual: dict) -> str:
+    """The person's check at the top of a bug page; none for findings nobody needs to try by hand."""
+    if manual["verdict"] == "none" and (f["status"] != "Confirmed" or f["type"] == "observation"):
+        return ""
+    latest = manual["latest"]
+    lines = []
+    if latest:
+        who = f" by {latest['by']}" if latest.get("by") else ""
+        when = f" on {latest['time'][:10]}" if latest.get("time") else ""
+        where = ", ".join(v for v in (latest.get("device"), latest.get("build") and f"build {latest['build']}") if v)
+        tries = latest.get("tries", "").replace("/", " of ")
+        lines.append(f"<p>{_e(tries)} tries{_e(who + when)}{_e(', ' + where if where else '')}.</p>")
+        if latest.get("note"):
+            lines.append(f'<p class="note">{_e(latest["note"])}</p>')
+        if manual["tries"] and manual["tries"] != latest.get("tries"):
+            lines.append(f'<p class="more">All manual checks: {_e(manual["tries"])} reproduced. '
+                         'Each one is in History.</p>')
+    elif manual["tries"]:
+        lines.append(f"<p>{_e(manual['tries'].replace('/', ' of '))} tries by hand.</p>")
+    else:
+        lines.append(f"<p>Only automation reproduced this ({_e(repro(f))}).</p>")
+    if manual["verdict"] == "no" and f["status"] == "Unconfirmed":
+        lines.append(f'<p class="more">Automation still reproduces it ({_e(repro(f))}): keep it Unconfirmed, '
+                     'or retract it if it was the automation.</p>')
+    icon = _icon(_CHECK if manual["verdict"] == "yes" else _CLOSE if manual["verdict"] == "no" else _SEARCH, 20)
+    return (f'<section class="manual-check manual-{manual["verdict"]}" aria-labelledby="manual-h">{icon}'
+            f'<div><h2 id="manual-h">{_e(manual["label"])}</h2>{"".join(lines)}</div></section>')
+
+
 def render_bug_page(session: dict, f: dict, prev_f: dict | None, next_f: dict | None, position: int, total: int,
                     copies: dict[str, str] | None) -> str:
     """copies: {"title", "md", "wiki"} texts for the copy buttons, or None when the finding isn't fileable."""
     area = f'<span class="area">{_e(f["area"])}</span>' if f.get("area") else ""
     head = (f'<header class="bug-head"><h1><span class="fid">{_e(f["id"])}</span>{_e(f["title"])}</h1>'
             f'<p class="tags">{_pills(f)}{area}</p>{_actions(f, copies) if copies else ""}</header>')
-    callout = ""
+    manual = manual_check(f)
+    callout = _manual_block(f, manual)
     if f["status"] == "Retracted":
         callout = f'<section class="callout"><h2>Why it was retracted</h2><p>{_e(f.get("notes"))}</p></section>'
-    elif f["status"] == "Unconfirmed":
+    elif f["status"] == "Unconfirmed" and manual["verdict"] == "none":
         callout = ('<section class="callout"><h2>Needs a manual reproduction</h2><p>So far only automation reproduced '
                    f'this ({_e(repro(f))}). Try it by hand before filing.</p></section>')
     facts = []

@@ -32,6 +32,9 @@ _SPECIAL_IDS = {
     "key_pos_space": "space", "key_pos_ime_action": "action",
 }
 
+# Keys after which Gboard leaves a symbol layer for letters by itself.
+RETURNS_TO_LETTERS = " '"
+
 TYPABLE = set(string.ascii_letters + string.digits) | set(NAMED_KEYS.values()) | set("@*\",.")
 
 
@@ -131,8 +134,9 @@ class Typist:
     """Types text key by key. `dump` returns a multi-window XML dump; `press` taps a key.
 
     The keyboard is only read where it can change on its own: at the start, after a sentence end
-    (auto-capitalisation), and before leaving a symbol layer (Gboard goes back to letters by itself after
-    some symbols, such as the apostrophe in "O'Brien"). Everything else is predicted from layouts already seen.
+    (auto-capitalisation), after a space or an apostrophe on a symbol layer (Gboard goes back to letters by
+    itself, as in "& 100" or "O'Brien"), before leaving a symbol layer, and on getting back to letters (Gboard
+    decides Shift again there, e.g. after "<" or "("). Everything else is predicted from layouts already seen.
     """
 
     def __init__(self, dump: Callable[[], str], press: Callable[[Key], None], ime_package: str):
@@ -144,9 +148,12 @@ class Typist:
         self._shifted = False
         # A key on a symbol layer was pressed since the last read: the keyboard may have switched back.
         self._unsure = False
+        # A key that makes Gboard go back to letters was pressed on a symbol layer: read before the next key,
+        # even one the predicted layer has (it would land on a letter in the same place).
+        self._stale = False
 
     def _read(self) -> Layer:
-        self._unsure = False
+        self._unsure = self._stale = False
         layer = parse_layer(self._dump(), self._ime)
         if layer is None:
             raise NoKeyboard()
@@ -167,7 +174,7 @@ class Typist:
             self._shifted = not self._shifted
             return True
         target = _TRANSITIONS.get((self._kind, special))
-        if target in self._layouts:
+        if target in self._layouts and target != "letters":
             self._kind = target
         else:
             self._read()
@@ -181,6 +188,8 @@ class Typist:
         return ["page", "page"]  # "page" toggles symbols <-> more symbols
 
     def _find(self, ch: str) -> Key | None:
+        if self._stale:
+            self._read()
         if key := self._current().key_for(ch):
             return key
         # About to switch layers on a guess: pressing a switch key where it isn't would type a symbol.
@@ -218,6 +227,7 @@ class Typist:
                 self._shifted = False  # Gboard's shift is one-shot
             elif self._kind != "letters":
                 self._unsure = True
+                self._stale = ch in RETURNS_TO_LETTERS
 
     def press_action(self) -> None:
         key = self._current().specials.get("action") or self._read().specials.get("action")

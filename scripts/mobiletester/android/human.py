@@ -56,8 +56,10 @@ class Driver:
         return self.adb.exec_out("screencap", "-p", timeout=20)
 
     def _display(self) -> tuple[int, int]:
+        """The screen as it is now: the natural size turned by the last observed rotation (`adt rotate`)."""
         w, h = device.facts(self.adb)["display"]
-        return w, h
+        last = device.last_observation(self.adb.serial) or {}
+        return (h, w) if last.get("rotation") in (1, 3) else (w, h)
 
     def _log(self, action: str, outcome: Outcome, started: datetime, **details) -> None:
         entry = {"action": action, "mode": "fast" if self.fast else self.pace.name, **details}

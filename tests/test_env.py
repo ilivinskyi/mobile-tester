@@ -71,3 +71,24 @@ def test_ios_url_schemes_from_info_plist():
     plist = {"CFBundleURLTypes": [{"CFBundleURLSchemes": ["habits"]}, {"CFBundleURLSchemes": ["habits-dev"]}]}
     assert simctl.url_schemes(plist) == ["habits:", "habits-dev:"]
     assert simctl.url_schemes({}) == []
+
+
+def test_every_rotation_turns_auto_rotate_off(tmp_path, monkeypatch):
+    monkeypatch.setenv("MT_HOME", str(tmp_path))
+    adb = SettingsAdb()
+    for name, value in (("reverse-landscape", "3"), ("reverse-portrait", "2"), ("landscape", "1")):
+        env.change(adb, "orientation", name)
+        assert adb.settings[("system", "user_rotation")] == value
+    assert adb.settings[("system", "accelerometer_rotation")] == "0"
+    env.restore_all(adb)
+    assert adb.settings[("system", "accelerometer_rotation")] == "1"  # auto-rotate is back on
+
+
+def test_gestures_use_the_screen_as_last_observed(monkeypatch):
+    from mobiletester.android import device, human
+
+    monkeypatch.setattr(device, "facts", lambda adb, refresh=False: {"display": [1080, 2400]})
+    driver = human.Driver(SettingsAdb())
+    for rotation, size in ((0, (1080, 2400)), (1, (2400, 1080)), (3, (2400, 1080)), (None, (1080, 2400))):
+        monkeypatch.setattr(device, "last_observation", lambda serial, r=rotation: {"rotation": r})
+        assert driver._display() == size

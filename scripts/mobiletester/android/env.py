@@ -9,12 +9,15 @@ from __future__ import annotations
 from ..core import restore
 from .adb import Adb
 
+# Surface rotation per orientation name, as `settings system user_rotation` takes it.
+ROTATIONS = {"portrait": "0", "landscape": "1", "reverse-portrait": "2", "reverse-landscape": "3"}
+
 # A change by name -> the device settings it sets ("namespace/key" -> value).
 CHANGES = {
     "dark": lambda v: {"uimode/night": "yes" if v == "on" else "no"},
     "font_scale": lambda v: {"system/font_scale": v},
-    "orientation": lambda v: {"system/accelerometer_rotation": "0",
-                              "system/user_rotation": "1" if v == "landscape" else "0"},
+    # Auto-rotate off, then a fixed rotation: works the same on a phone on the desk and on an emulator.
+    "orientation": lambda v: {"system/accelerometer_rotation": "0", "system/user_rotation": ROTATIONS[v]},
     "rtl": lambda v: {"global/debug.force_rtl": "1" if v == "on" else "0"},
     "network": lambda v: {"connectivity/airplane": "on" if v == "offline" else "off"},
 }

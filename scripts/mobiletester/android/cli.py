@@ -685,6 +685,26 @@ def cmd_env(args, adb: Adb) -> int:
     return EXIT_OK
 
 
+def cmd_rotate(args, adb: Adb) -> int:
+    """Turn the screen like a person turning the phone: auto-rotate off and a fixed rotation, restored later."""
+    _system_change_allowed(adb, f"rotate {args.orientation}", args.approval)
+    env.change(adb, "orientation", args.orientation)
+    session.log_action(adb.serial, {"action": "rotate", "mode": "setup", "orientation": args.orientation})
+    time.sleep(args.settle)  # the rotation animation
+    if args.no_observe:
+        print(f"rotated to {args.orientation}. `rotate portrait`, `env --reset` or `session end` turns it back.")
+        return EXIT_OK
+    before = device.last_observation(adb.serial)
+    obs = device.observe(adb, save_dir=_session_shots(adb))
+    shown = obs.snapshot.rotation
+    if str(shown) != env.ROTATIONS[args.orientation]:
+        print(f"note: the screen stayed at rotation {shown}: the app (or this screen) locks its orientation")
+    else:
+        print(f"rotated to {args.orientation}. Check the screen kept its state (typed text, scroll, open dialogs).")
+    _print_observation(obs, as_json=False, previous=commands.previous_elements(before, obs.fingerprint))
+    return EXIT_OK
+
+
 def cmd_net(args, adb: Adb) -> int:
     if args.state == "online":
         restored = env.restore_all(adb, ["connectivity/airplane"])
@@ -1024,10 +1044,16 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("env", help="config stress: dark mode, font scale, orientation, RTL (restored at session end)")
     p.add_argument("--dark", choices=["on", "off"])
     p.add_argument("--font-scale", dest="font_scale", choices=["0.85", "1.0", "1.15", "1.3", "1.5", "2.0"])
-    p.add_argument("--orientation", choices=["portrait", "landscape"])
+    p.add_argument("--orientation", choices=list(env.ROTATIONS))
     p.add_argument("--rtl", choices=["on", "off"], help="force right-to-left layout (restart the app afterwards)")
     p.add_argument("--reset", action="store_true", help="put back everything env changed")
     p.add_argument("--approval", metavar="APPROVAL", help="user's approval, required on a physical device")
+    p = sub.add_parser("rotate", help="turn the screen (auto-rotate off, fixed rotation), then observe; restored "
+                                      "at session end. Works on phones: test devices need no approval")
+    p.add_argument("orientation", choices=list(env.ROTATIONS))
+    p.add_argument("--settle", type=float, default=1.5, help="seconds to wait for the rotation animation")
+    p.add_argument("--no-observe", dest="no_observe", action="store_true", help="don't observe afterwards")
+    p.add_argument("--approval", metavar="APPROVAL", help="user's approval, required on a personal phone")
     p = sub.add_parser("net", help="go offline (airplane mode) and back online; restored at session end")
     p.add_argument("state", choices=["offline", "online"])
     p.add_argument("--approval", metavar="APPROVAL", help="user's approval, required on a physical device")
@@ -1088,7 +1114,8 @@ def build_parser() -> argparse.ArgumentParser:
 _NO_DEVICE = {"doctor": cmd_doctor, "devices": cmd_devices, "report": commands.cmd_report, "apk": cmd_apk,
               "issues": commands.cmd_issues, "finding": commands.cmd_finding}
 _WITH_DEVICE = {
-    "info": cmd_info, "observe": cmd_observe, "inspect": cmd_inspect, "tap": cmd_tap, "type": cmd_type,
+    "info": cmd_info, "observe": cmd_observe, "rotate": cmd_rotate,
+    "inspect": cmd_inspect, "tap": cmd_tap, "type": cmd_type,
     "key": cmd_key, "swipe": cmd_swipe, "scroll": cmd_scroll, "wait": cmd_wait, "app": cmd_app,
     "permissions": cmd_permissions, "open": cmd_open, "logcat": cmd_logcat, "record": cmd_record, "clip": cmd_clip,
     "session": cmd_session, "touches": cmd_touches, "env": cmd_env, "net": cmd_net,

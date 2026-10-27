@@ -294,13 +294,19 @@ def _wait_for_keyboard(adb: Adb, timeout: float = 3.0) -> None:
 
 def cmd_type(args, adb: Adb) -> int:
     driver = _driver(adb, args)
-    if args.index is not None:
+    try:
         snap, _ = device.last_snapshot(adb.serial)
-        el = snap.find(args.index)
+    except LookupError:
+        if args.index is not None:
+            raise
+        snap = None  # typing into whatever has focus, with no observation yet
+    el = snap.find(args.index) if args.index is not None else None
+    log = commands.typed_log(adb.serial, args.text, el, snap.elements if snap else [])
+    if el is not None:
         driver.tap(*_tap_point(snap, el, args, _keyboard_area(adb)), target=el.describe())
         _wait_for_keyboard(adb)
     try:
-        outcome = driver.type_text(args.text, fallback=args.fallback, submit=args.submit)
+        outcome = driver.type_text(args.text, fallback=args.fallback, submit=args.submit, log=log)
     except keyboard.CannotType as exc:
         raise NeedsDecision(f"{exc}. Ask the user how to continue, or rerun with --fallback keyevents "
                             "(one key event per character) or --fallback bulk.") from exc

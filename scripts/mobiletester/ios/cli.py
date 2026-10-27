@@ -356,13 +356,19 @@ def _wait_for_keyboard(dev: Device, timeout: float = 3.0) -> None:
 
 def cmd_type(args, dev: Device) -> int:
     driver = _driver(_ready(dev), args)
-    if args.index is not None:
+    try:
         snap, kb, _ = device.last_snapshot(dev.udid)
-        el = snap.find(args.index)
+    except LookupError:
+        if args.index is not None:
+            raise
+        snap, kb = None, None  # typing into whatever has focus, with no observation yet
+    el = snap.find(args.index) if args.index is not None else None
+    log = commands.typed_log(dev.udid, args.text, el, snap.elements if snap else [])
+    if el is not None:
         driver.tap(*_tap_point(snap, el, args, (kb.area,) if kb else ()), target=el.describe())
         _wait_for_keyboard(dev)
     try:
-        outcome = driver.type_text(args.text, submit=args.submit)
+        outcome = driver.type_text(args.text, submit=args.submit, log=log)
     except keyboard.CannotType as exc:
         raise NeedsDecision(f"{exc}. Ask the user how to continue (they may type it on the "
                             f"{'device' if dev.physical else 'simulator'}).") from exc

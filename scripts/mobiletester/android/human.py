@@ -176,7 +176,8 @@ class Driver:
         ime_package = device.facts(self.adb)["ime"].split("/", 1)[0]
         return keyboard.Typist(lambda: device.dump_windows(self.adb), self._press_key, ime_package)
 
-    def type_text(self, text: str, fallback: str = "ask", submit: bool = False) -> Outcome:
+    def type_text(self, text: str, fallback: str = "ask", submit: bool = False,
+                  log: dict | None = None) -> Outcome:
         """Type via on-screen keys. `fallback`: 'ask' raises CannotType, 'keyevents' types the rest
         one character at a time with key events, 'bulk' injects it at once."""
         method = "fast-bulk" if self.fast else "keyboard"
@@ -201,8 +202,8 @@ class Driver:
             if submit:
                 device.key(self.adb, "enter")
 
-        # Never log the text itself: it may be a credential.
-        return self._perform("type", do, chars=len(text), method=method, submit=submit)
+        # `log`: the field and the text, hidden when it could be a credential (core/inputs.py).
+        return self._perform("type", do, chars=len(text), method=method, submit=submit, **(log or {}))
 
     def _fallback_type(self, text: str, fallback: str) -> None:
         if fallback == "bulk":

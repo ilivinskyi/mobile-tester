@@ -205,7 +205,8 @@ class Driver:
     def _typist(self) -> keyboard.Typist:
         return keyboard.Typist(self._keys, self._press_key)
 
-    def type_text(self, text: str, submit: bool = False) -> Outcome:
+    def type_text(self, text: str, submit: bool = False,
+                  log: dict | None = None) -> Outcome:
         """Type via on-screen keys, switching shift and layers like a person."""
         def do() -> None:
             typist = self._typist()
@@ -213,6 +214,6 @@ class Driver:
             if submit:
                 typist.press_named("return")
 
-        # Never log the text itself: it may be a credential.
-        return self._perform("type", do, chars=len(text), method="keyboard", submit=submit)
+        # `log`: the field and the text, hidden when it could be a credential (core/inputs.py).
+        return self._perform("type", do, chars=len(text), method="keyboard", submit=submit, **(log or {}))
 

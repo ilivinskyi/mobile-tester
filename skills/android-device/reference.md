@@ -49,7 +49,7 @@ With `--bounds`: `[7] "Storage | 16% used" #storage_row @(540,1396) 1080x195 [cl
 
 `observe` adds a `contrast:` line on a screen's first visit in a session when some text is below 4.5:1. `contrast [--min 4.5]` reads the text and background colour of every text on the last observe's screenshot and lists those below the ratio (WCAG AA: 4.5:1 normal text, 3:1 large), lowest first (no device call). Check each on the screenshot: a picture behind text can fool it.
 
-`screens RUN` lists the screens the session observed, with the controls never tapped on each, and the taps that changed nothing (a dead button, or a missed tap). Works without a device; the report shows the same screen list.
+`screens RUN` lists the screens the session observed, with the controls never tapped on each, the inputs typed into each field (`type` logs the field and the text; a password field, a login-like field or a value from the secrets file is logged as hidden), and the taps that changed nothing (a dead button, or a missed tap). Screens with nothing left to try are only counted. Works without a device; the report shows the same screen list.
 
 Actions (`tap`, `type`, `key`, `scroll`, `swipe`) end with the new element list when the screen changed: `--observe` always lists it, `--no-observe` never. Not in repro sessions or with `--fast`.
 

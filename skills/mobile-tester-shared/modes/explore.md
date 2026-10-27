@@ -34,7 +34,7 @@ Work area by area, like a curious, slightly impatient user:
 - **Main flows first** (`about.main_flows`), the way the users in `about.users` would go through them.
 - **Rules:** try to break each rule in `about.rules`: the limits, validations and permissions it describes, from both sides.
 - **Roles:** when `about.roles` lists several, check that each sees and can do only what it should.
-- **Inputs:** every input field gets the checks for its kind, not just the first field of a form. Keep a field list in `logs/notes.md` and tick it off.
+- **Inputs:** every input field gets the checks for its kind, not just the first field of a form. `dt screens RUN` shows what each field got so far (the action log keeps the field and the text; texts that could be credentials are hidden), so there is no list to keep by hand.
 
   | Field | Try |
   |---|---|
@@ -60,7 +60,6 @@ While exploring:
 - One action, look, next action. Read every "no visible change" warning.
 - When something looks wrong, check the raw source before writing it down; then reproduce it once more before calling it a bug.
 - Write findings immediately; observations are welcome, they're cheap and useful.
-- Keep a short trail in `logs/notes.md`: area, what you tried, what you saw.
 
 ## Stop
 

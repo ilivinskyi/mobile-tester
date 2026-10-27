@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from . import contrast, devices, diff, findings, lifecycle, report, screens, telemetry, ui
+from . import contrast, devices, diff, findings, inputs, lifecycle, report, screens, session, telemetry, ui
 from .state import PROJECT_DIR
 
 EXIT_OK, EXIT_USAGE, EXIT_DEVICE, EXIT_NOT_FOUND, EXIT_BLOCKED, EXIT_DECISION = 0, 2, 3, 4, 5, 6
@@ -330,6 +330,13 @@ def observe_after(args, changed: bool | None, mode: str | None) -> bool:
     if getattr(args, "no_observe", False) or getattr(args, "fast", False) or mode == "repro":
         return False
     return changed is True
+
+
+def typed_log(serial: str, text: str, target: ui.Element | None, elements: list[ui.Element]) -> dict:
+    """The `type` action's field and text for the action log (the text hidden when it could be a credential).
+    The field is the one tapped with --index, else the focused field of the last observation."""
+    field = target if target is not None and target.editable else inputs.focused_field(elements)
+    return inputs.log_fields(text, field, inputs.secret_values(session.package(serial)))
 
 
 def add_plan_args(sp) -> None:

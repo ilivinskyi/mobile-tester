@@ -48,7 +48,7 @@ def test_inventory_lists_untried_controls_and_dead_taps(tmp_path):
     found = screens.inventory(_run(tmp_path))
     home, detail = found["screens"]
     assert home == {"title": "TaskPulse", "visits": 2, "controls": ["Projects", "Tags", "Settings", "Toggle Status"],
-                    "untried": ["Tags", "Settings", "Toggle Status"]}
+                    "untried": ["Tags", "Settings", "Toggle Status"], "inputs": {}}
     assert detail["untried"] == ["Back"]
     assert found["no_change"] == [{"time": "10:00:09", "screen": "Project Detail", "target": "Export Project CSV"}]
     text = "\n".join(screens.lines(found))
@@ -86,3 +86,58 @@ def test_other_apps_screens_and_shared_controls(tmp_path):
     (tmp_path / "logs" / "actions.jsonl").write_text("\n".join(json.dumps(a) for a in actions), encoding="utf-8")
     found = {row["title"]: row["untried"] for row in screens.inventory(tmp_path)["screens"]}
     assert found == {"Home": ["Profile"], "Settings": ["Home", "Wipe data"]}  # no lock screen; Settings tried
+
+
+def test_typed_inputs_per_field_and_finished_screens_are_only_counted(tmp_path):
+    (tmp_path / "logs").mkdir()
+    screens.record(tmp_path, "list", "Tasks", ["Sort"])
+    screens.record(tmp_path, "done", "About", [])
+    actions = [{"t": "2026-10-27T10:00:01.000+01:00", "action": "observe", "fp": "list"},
+               {"t": "2026-10-27T10:00:02.000+01:00", "action": "type", "field": "Search tasks", "text": "qa"},
+               {"t": "2026-10-27T10:00:03.000+01:00", "action": "type", "field": "Search tasks", "text": "["},
+               {"t": "2026-10-27T10:00:04.000+01:00", "action": "type", "chars": 4},  # an old entry: no text
+               {"t": "2026-10-27T10:00:05.000+01:00", "action": "observe", "fp": "done"}]
+    (tmp_path / "logs" / "actions.jsonl").write_text("\n".join(json.dumps(a) for a in actions), encoding="utf-8")
+    text = "\n".join(screens.lines(screens.inventory(tmp_path)))
+    assert text.startswith("Screens visited (2; 1 with nothing left to try not listed):")
+    assert "    typed: Search tasks: 'qa', '['" in text and "About" not in text
+
+
+def test_typed_text_is_hidden_when_it_could_be_a_credential(tmp_path, monkeypatch):
+    from mobiletester.core import inputs
+
+    def field(hint, password=False):
+        return Element(index=1, cls="EditText", text="", desc="", resource_id="", hint=hint, bounds=Bounds(0, 0, 9, 9),
+                       label=hint, editable=True, password=password)
+
+    assert inputs.log_fields("-50", field("Estimated Hours"), set()) == {"field": "Estimated Hours", "text": "-50",
+                                                                         "at": [0, 0]}
+    assert inputs.log_fields("hunter2", field("Choose", password=True), set())["text"] == inputs.HIDDEN
+    for hint in ("Email", "Password", "One-time code", "Card number", "Username"):
+        assert inputs.log_fields("x@y.z", field(hint), set())["text"] == inputs.HIDDEN, hint
+    assert inputs.log_fields("tester01", field("Nickname"), {"tester01"})["text"] == inputs.HIDDEN
+    assert len(inputs.log_fields("a" * 200, field("Notes"), set())["text"]) == 80
+    # The secrets file of the app under test is read from the project folder.
+    app = tmp_path / ".mobile-tester" / "apps" / "com.example"
+    app.mkdir(parents=True)
+    (tmp_path / ".mobile-tester" / "config.yaml").write_text("tester: T\n")
+    (app / "secrets.local.yaml").write_text("login:\n  user: qa@example.com\n  password: s3cret\n")
+    assert inputs.secret_values("com.example", tmp_path) == {"qa@example.com", "s3cret"}
+    assert inputs.secret_values("com.other", tmp_path) == set()
+
+
+def test_a_field_keeps_its_first_name_and_numbered_titles_are_one_screen(tmp_path):
+    # Seen on a Pixel: the search field's label is its placeholder until it has text, then the text itself.
+    (tmp_path / "logs").mkdir()
+    screens.record(tmp_path, "a", "All Tasks (5)", [])
+    screens.record(tmp_path, "b", "All Tasks (0)", [])
+    actions = [{"t": "2026-10-27T10:00:01.000+01:00", "action": "observe", "fp": "a"},
+               {"t": "2026-10-27T10:00:02.000+01:00", "action": "type", "field": "Search tasks...", "text": "qa",
+                "at": [40, 300]},
+               {"t": "2026-10-27T10:00:03.000+01:00", "action": "observe", "fp": "b"},
+               {"t": "2026-10-27T10:00:04.000+01:00", "action": "type", "field": "qa", "text": " milk",
+                "at": [40, 300]}]
+    (tmp_path / "logs" / "actions.jsonl").write_text("\n".join(json.dumps(a) for a in actions), encoding="utf-8")
+    [row] = screens.inventory(tmp_path)["screens"]
+    assert row["title"] == "All Tasks (#)" and row["visits"] == 2
+    assert row["inputs"] == {"Search tasks...": ["qa", " milk"]}

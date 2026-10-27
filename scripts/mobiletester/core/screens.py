@@ -33,6 +33,11 @@ def _key(name: str) -> str:
     return name.rstrip("…").casefold()
 
 
+def _same_screen(title_text: str) -> str:
+    """Titles that differ only in numbers ("All Tasks (5)", "All Tasks (0)") are one screen."""
+    return re.sub(r"\d+", "#", title_text)
+
+
 def title(elements: list[Element], screen_height: int) -> str:
     """The screen's title: the topmost fixed text (not in a list, not a control) near the top."""
     lists = [e.z for e in content_lists(elements)]
@@ -98,10 +103,15 @@ def _tapped(entry: dict) -> str:
 
 
 def inventory(run: Path) -> dict:
-    """{"screens": [{"title", "visits", "controls", "untried"}], "no_change": [{"time", "screen", "target"}]}."""
+    """{"screens": [{"title", "visits", "controls", "untried", "inputs"}], "no_change": [{"time", "screen", "target"}]}.
+
+    `inputs` is {field: [texts typed into it]}, from the `type` entries (texts that could be credentials
+    are logged as hidden)."""
     seen = state.read_json(run / "logs" / "screens.json") or {}
-    title_of = {fp: entry["title"] or f"screen {fp[:6]}" for fp, entry in seen.items()}
+    title_of = {fp: _same_screen(entry["title"]) or f"screen {fp[:6]}" for fp, entry in seen.items()}
     tapped: dict[str, set[str]] = {}
+    typed: dict[str, dict[str, list[str]]] = {}
+    names: dict[tuple, str] = {}
     no_change = []
     current = ""
     for entry in _actions(run):
@@ -111,6 +121,13 @@ def inventory(run: Path) -> dict:
             tapped.setdefault(current, set()).add(_key(target))
             if entry.get("changed") is False:
                 no_change.append({"time": entry["t"][11:19], "screen": current, "target": target})
+        elif entry.get("action") == "type" and "text" in entry:
+            # A field with text has lost its hint: name it as it was named at the same place before.
+            place = (current, tuple(entry.get("at") or ()))
+            name = names.setdefault(place, entry.get("field") or "") if place[1] else entry.get("field") or ""
+            texts = typed.setdefault(current, {}).setdefault(name or "a field", [])
+            if entry["text"] not in texts:
+                texts.append(entry["text"])
     screens: dict[str, dict] = {}
     for fp, entry in seen.items():
         row = screens.setdefault(title_of[fp], {"title": title_of[fp], "visits": 0, "controls": []})
@@ -123,6 +140,7 @@ def inventory(run: Path) -> dict:
     for row in screens.values():
         done = tapped.get(row["title"], set()) | (anywhere & shared)
         row["untried"] = [c for c in row["controls"] if _key(c) not in done]
+        row["inputs"] = typed.get(row["title"], {})
     return {"screens": list(screens.values()), "no_change": no_change}
 
 
@@ -135,11 +153,18 @@ def _on_several(rows) -> set[str]:
 
 
 def lines(found: dict) -> list[str]:
-    out = [f"Screens visited ({len(found['screens'])}):"]
-    for row in found["screens"]:
+    # Screens with nothing left to try and nothing typed are only counted: the list stays short.
+    shown = [row for row in found["screens"] if row["untried"] or row.get("inputs")]
+    done = len(found["screens"]) - len(shown)
+    out = [f"Screens visited ({len(found['screens'])}" + (f"; {done} with nothing left to try not listed" if done
+                                                          else "") + "):"]
+    for row in shown:
         untried = ", ".join(row["untried"]) or "none"
         out.append(f"  {row['title']}  ({row['visits']} visit{'s' if row['visits'] != 1 else ''})  "
                    f"not tried: {untried}")
+        if row.get("inputs"):
+            out.append("    typed: " + "; ".join(f"{field}: " + ", ".join(repr(t) for t in texts)
+                                         for field, texts in row["inputs"].items()))
     if not found["screens"]:
         out.append("  none recorded: observe after each navigation")
     if found["no_change"]:

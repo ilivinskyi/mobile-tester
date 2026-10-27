@@ -328,6 +328,10 @@ def cmd_inspect(args, dev: Device) -> int:
     return EXIT_OK
 
 
+def cmd_contrast(args, dev: Device) -> int:
+    return commands.print_contrast(device.last_observation(dev.udid), args.min, "idt")
+
+
 def cmd_tap(args, dev: Device) -> int:
     driver = _driver(_ready(dev), args)
     x, y, el, label = _resolve_target(dev, args, driver)
@@ -897,6 +901,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true")
 
     commands.add_inspect_parser(sub, "idt", "UI tree")
+    commands.add_contrast_parser(sub)
 
     p = sub.add_parser("tap", help="tap an element or point (points, not pixels)")
     target = p.add_mutually_exclusive_group(required=True)
@@ -1061,7 +1066,8 @@ def build_parser() -> argparse.ArgumentParser:
 _NO_DEVICE = {"doctor": cmd_doctor, "devices": cmd_devices, "report": commands.cmd_report,
               "issues": commands.cmd_issues, "finding": commands.cmd_finding}
 _WITH_DEVICE = {
-    "runner": cmd_runner, "info": cmd_info, "observe": cmd_observe, "inspect": cmd_inspect, "tap": cmd_tap,
+    "runner": cmd_runner, "info": cmd_info, "observe": cmd_observe, "inspect": cmd_inspect, "contrast": cmd_contrast,
+    "tap": cmd_tap,
     "type": cmd_type, "key": cmd_key, "swipe": cmd_swipe, "scroll": cmd_scroll, "wait": cmd_wait, "app": cmd_app,
     "permissions": cmd_permissions, "env": cmd_env, "media": cmd_media, "clipboard": cmd_clipboard,
     "location": cmd_location, "bio": cmd_bio, "open": cmd_open, "log": cmd_log, "crashes": cmd_crashes,

@@ -685,6 +685,10 @@ def cmd_env(args, adb: Adb) -> int:
     return EXIT_OK
 
 
+def cmd_contrast(args, adb: Adb) -> int:
+    return commands.print_contrast(device.last_observation(adb.serial), args.min, "adt")
+
+
 def cmd_rotate(args, adb: Adb) -> int:
     """Turn the screen like a person turning the phone: auto-rotate off and a fixed rotation, restored later."""
     _system_change_allowed(adb, f"rotate {args.orientation}", args.approval)
@@ -902,6 +906,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true")
 
     commands.add_inspect_parser(sub, "adt", "uiautomator XML")
+    commands.add_contrast_parser(sub)
 
     p = sub.add_parser("tap", help="tap an element or point")
     target = p.add_mutually_exclusive_group(required=True)
@@ -1114,7 +1119,7 @@ def build_parser() -> argparse.ArgumentParser:
 _NO_DEVICE = {"doctor": cmd_doctor, "devices": cmd_devices, "report": commands.cmd_report, "apk": cmd_apk,
               "issues": commands.cmd_issues, "finding": commands.cmd_finding}
 _WITH_DEVICE = {
-    "info": cmd_info, "observe": cmd_observe, "rotate": cmd_rotate,
+    "info": cmd_info, "observe": cmd_observe, "rotate": cmd_rotate, "contrast": cmd_contrast,
     "inspect": cmd_inspect, "tap": cmd_tap, "type": cmd_type,
     "key": cmd_key, "swipe": cmd_swipe, "scroll": cmd_scroll, "wait": cmd_wait, "app": cmd_app,
     "permissions": cmd_permissions, "open": cmd_open, "logcat": cmd_logcat, "record": cmd_record, "clip": cmd_clip,

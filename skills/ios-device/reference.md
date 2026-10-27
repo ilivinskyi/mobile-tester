@@ -41,6 +41,8 @@ With `--bounds`: `[1] Button "Add" #plus @(374,79) 23x22 [click]`.
 
 `inspect --index N | --text T | --id ID` prints the raw tree node behind an element of the last observe, with its parent and children (no device call). Use it to prove a finding instead of reading the saved tree JSON.
 
+`contrast [--min 4.5]` reads the text and background colour of every text on the last observe's screenshot and lists those below the ratio (WCAG AA: 4.5:1 normal text, 3:1 large), lowest first (no device call). Check each on the screenshot: a picture behind text can fool it.
+
 Actions (`tap`, `type`, `key`, `scroll`, `swipe`) end with the new element list when the screen changed: `--observe` always lists it, `--no-observe` never. Not in repro sessions or with `--fast`.
 
 - Type: the XCUITest element type (`Button`, `Cell`, `TextField`, `StaticText`, `Image`, `Switch`, `CollectionView`, ...).

@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from . import devices, diff, findings, lifecycle, report, telemetry, ui
+from . import contrast, devices, diff, findings, lifecycle, report, telemetry, ui
 from .state import PROJECT_DIR
 
 EXIT_OK, EXIT_USAGE, EXIT_DEVICE, EXIT_NOT_FOUND, EXIT_BLOCKED, EXIT_DECISION = 0, 2, 3, 4, 5, 6
@@ -321,6 +321,22 @@ def observe_after(args, changed: bool | None, mode: str | None) -> bool:
     if getattr(args, "no_observe", False) or getattr(args, "fast", False) or mode == "repro":
         return False
     return changed is True
+
+
+def print_contrast(last: dict | None, minimum: float, tool: str) -> int:
+    """`contrast`: text contrast on the last observed screen (its screenshot and elements)."""
+    if not last or not last.get("screenshot") or not Path(last["screenshot"]).is_file():
+        print(f"no screenshot of the current screen: run `{tool} observe` first")
+        return EXIT_USAGE
+    elements = [ui.Element.from_dict(e) for e in last.get("elements", [])]
+    results = contrast.check(Path(last["screenshot"]).read_bytes(), elements, last["screen"][0])
+    print("\n".join(contrast.lines(results, minimum)))
+    return EXIT_OK
+
+
+def add_contrast_parser(sub) -> None:
+    p = sub.add_parser("contrast", help="text contrast (WCAG ratio) of every text on the last observed screen")
+    p.add_argument("--min", type=float, default=contrast.AA_NORMAL, help="list texts below this ratio (default 4.5)")
 
 
 def inspect_target(snapshot: ui.Snapshot, args) -> ui.Element:

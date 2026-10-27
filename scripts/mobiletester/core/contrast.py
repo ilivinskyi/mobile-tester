@@ -19,6 +19,8 @@ AA_NORMAL = 4.5  # WCAG 2 AA, normal text
 AA_LARGE = 3.0  # WCAG 2 AA, large text (24 px / 18.66 px bold and up, in CSS terms)
 _MIN_SHARE = 0.01  # a colour covering less of the box is an edge or a speck, not the text
 _MIN_PIXELS = 20
+# A box with this many colours of 2% or more is a photo or a gradient: no single background to measure.
+_PHOTO_COLOURS = 8
 
 
 @dataclass
@@ -71,6 +73,8 @@ def text_and_background(box: Image.Image) -> tuple[tuple[int, int, int], tuple[i
         members = groups[key]
         return tuple(round(sum(c[i] for c in members) / len(members)) for i in range(3))  # type: ignore[return-value]
 
+    if sum(1 for n in counts.values() if n >= 0.02 * len(pixels)) > _PHOTO_COLOURS:
+        return None
     background_key = counts.most_common(1)[0][0]
     background = mean(background_key)
     least = max(_MIN_PIXELS, _MIN_SHARE * len(pixels))
@@ -106,6 +110,16 @@ def check(png: bytes, elements: list[Element], screen_width: int) -> list[Result
             text, background = colours
             results.append(Result(el, round(ratio(text, background), 2), _hex(text), _hex(background)))
     return sorted(results, key=lambda r: r.ratio)
+
+
+def first_visit_note(png: bytes, elements: list[Element], screen_width: int, tool: str) -> str | None:
+    """One line for `observe` on a screen's first visit, when some text is below 4.5:1; else None."""
+    low = [r for r in check(png, elements, screen_width) if r.ratio < AA_NORMAL]
+    if not low:
+        return None
+    shown = ", ".join(f"[{r.element.index}] {r.ratio}:1" for r in low[:6]) + (" ..." if len(low) > 6 else "")
+    return (f"contrast: {len(low)} text(s) below 4.5:1 on this new screen: {shown} "
+            f"(`{tool} contrast` for the colours; check the screenshot)")
 
 
 def lines(results: list[Result], minimum: float = AA_NORMAL) -> list[str]:

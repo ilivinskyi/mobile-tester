@@ -47,7 +47,7 @@ With `--bounds`: `[7] "Storage | 16% used" #storage_row @(540,1396) 1080x195 [cl
 
 `inspect --index N | --text T | --id ID` prints the raw XML node behind an element of the last observe, with its parent and children (no device call). Use it to prove a finding instead of reading `latest.xml`.
 
-`contrast [--min 4.5]` reads the text and background colour of every text on the last observe's screenshot and lists those below the ratio (WCAG AA: 4.5:1 normal text, 3:1 large), lowest first (no device call). Check each on the screenshot: a picture behind text can fool it.
+`observe` adds a `contrast:` line on a screen's first visit in a session when some text is below 4.5:1. `contrast [--min 4.5]` reads the text and background colour of every text on the last observe's screenshot and lists those below the ratio (WCAG AA: 4.5:1 normal text, 3:1 large), lowest first (no device call). Check each on the screenshot: a picture behind text can fool it.
 
 `screens RUN` lists the screens the session observed, with the controls never tapped on each, and the taps that changed nothing (a dead button, or a missed tap). Works without a device; the report shows the same screen list.
 

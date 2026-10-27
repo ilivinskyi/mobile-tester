@@ -57,3 +57,19 @@ def test_command_lists_only_low_contrast_texts(tmp_path, capsys):
     assert "1 of 2 text elements below 4.5:1" in out and '[1] "Wipe Local Database"' in out
     assert "Notification Preferences" not in out
     assert commands.print_contrast({"screenshot": None}, 4.5, "adt") == 2
+
+
+def test_photo_and_gradient_boxes_are_skipped():
+    img = Image.new("RGB", (200, 50))
+    for x in range(200):  # a gradient: many colours, no single background
+        for y in range(50):
+            img.putpixel((x, y), (x, 255 - x, (x * 3) % 256))
+    assert contrast.text_and_background(img) is None
+
+
+def test_first_visit_note_names_the_low_texts():
+    note = contrast.first_visit_note(_screen(), ELEMENTS, 300, "adt")
+    assert note.startswith("contrast: 1 text(s) below 4.5:1 on this new screen: [1] 1.") and "`adt contrast`" in note
+    shot = io.BytesIO()
+    Image.new("RGB", (600, 400), "#FFFFFF").save(shot, "PNG")
+    assert contrast.first_visit_note(shot.getvalue(), ELEMENTS, 300, "adt") is None  # nothing readable to flag

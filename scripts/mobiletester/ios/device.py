@@ -12,11 +12,11 @@ from __future__ import annotations
 
 import json
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from ..core import annotate, screens, session, state
+from ..core import annotate, contrast, screens, session, state
 from ..core.fingerprint import screen_fingerprint
 from ..core.ui import Bounds, Element, Snapshot
 from . import devicectl, hierarchy, simctl
@@ -157,6 +157,7 @@ class Observation:
     preview: Path | None
     screenshot: Path | None
     timestamp: str
+    notes: list[str] = field(default_factory=list)  # one-line hints, e.g. low contrast on a new screen
 
     def to_dict(self) -> dict:
         s = self.snapshot
@@ -220,8 +221,12 @@ def observe(dev: Device, bundle_id: str | None = None, save_dir: Path | None = N
     state.write_json(ddir / "latest.json", obs.to_dict())
     # Screens visited: the session's screen list (`idt screens`) and `report diff` between runs.
     screen_title = screens.title(snap.elements, snap.screen.bottom)
-    screens.record(session.run_dir(dev.udid), fp, screen_title, screens.controls(snap.elements),
-                   target)
+    visits = screens.record(session.run_dir(dev.udid), fp, screen_title, screens.controls(snap.elements),
+                            target)
+    if visits == 1 and shot is not None:
+        # A screen's first visit: flag unreadable text right away, with the screenshot already taken.
+        note = contrast.first_visit_note(shot.read_bytes(), snap.elements, snap.screen.right, "idt")
+        obs.notes = [note] if note else []
     session.log_action(dev.udid, {"action": "observe", "mode": "read", "fp": fp,
                                   "screen": f"{target} {title}".strip(), "title": screen_title})
     return obs

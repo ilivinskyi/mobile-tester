@@ -5,11 +5,11 @@ from __future__ import annotations
 import re
 import shlex
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from ..core import annotate, screens, session, state
+from ..core import annotate, contrast, screens, session, state
 from ..core.fingerprint import screen_fingerprint
 from . import hierarchy, keyboard
 from .adb import Adb, AdbError
@@ -165,6 +165,7 @@ class Observation:
     preview: Path | None
     screenshot: Path | None
     timestamp: str
+    notes: list[str] = field(default_factory=list)  # one-line hints, e.g. low contrast on a new screen
 
     def to_dict(self) -> dict:
         s = self.snapshot
@@ -210,8 +211,12 @@ def observe(adb: Adb, save_dir: Path | None = None, name: str | None = None, wit
     state.write_json(ddir / "latest.json", obs.to_dict())
     # Screens visited: the session's screen list (`adt screens`) and `report diff` between runs.
     screen_title = screens.title(snap.elements, snap.screen.bottom)
-    screens.record(session.run_dir(adb.serial), fp, screen_title, screens.controls(snap.elements),
-                   package)
+    visits = screens.record(session.run_dir(adb.serial), fp, screen_title, screens.controls(snap.elements),
+                            package)
+    if visits == 1 and shot is not None:
+        # A screen's first visit: flag unreadable text right away, with the screenshot already taken.
+        note = contrast.first_visit_note(shot.read_bytes(), snap.elements, snap.screen.right, "adt")
+        obs.notes = [note] if note else []
     session.log_action(adb.serial, {"action": "observe", "mode": "read", "fp": fp,
                                     "screen": f"{package}/{activity.removeprefix(package)}", "title": screen_title})
     return obs

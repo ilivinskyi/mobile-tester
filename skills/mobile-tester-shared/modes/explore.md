@@ -23,7 +23,7 @@ Before going deep, open every screen once: cheap defects (typos, dead buttons, b
 ### Screen checks (first visit)
 
 - **Text:** read every title, label, button, hint and placeholder for typos and wrong words; tap empty fields once to see their hints.
-- **Contrast:** `dt contrast` lists texts below 4.5:1 on the last observed screen. Check each one on the screenshot before writing it down.
+- **Contrast:** on a screen's first visit, `observe` adds a `contrast:` line when some text is below 4.5:1 (photos and gradients are skipped). Check each one on the screenshot before writing it down; `dt contrast` gives the colours.
 - **Back:** the top-bar back arrow and the system back (iOS: the edge swipe) must both leave the screen to where you came from. Back that stays, lands on the same screen again (a loop), or does nothing (a dead end) is a bug.
 - **Every control does something:** a tap with no visible change is a dead button or a missed tap. Read every "no visible change" warning, try it once more, and before wrap-up read the "Taps with no visible change" part of `dt screens RUN`.
 - **Layout:** clipped, overlapping or cut-off text, controls under other controls.

@@ -54,6 +54,8 @@ def _print_observation(obs: device.Observation, as_json: bool, bounds: bool = Fa
     if risky:
         print(f"WARNING: {len(risky)} risky element(s) on screen: "
               + ", ".join(f"[{e.index}] {e.risk}" for e in risky))
+    for note in obs.notes:
+        print(note)
     print("\n".join(ui.listing(s.elements, previous, bounds, depth_step=4)))
 
 

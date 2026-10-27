@@ -64,13 +64,14 @@ def controls(elements: list[Element]) -> list[str]:
     return names
 
 
-def record(run: Path | None, fingerprint: str, screen_title: str, names: list[str], package: str = "") -> None:
-    """Count a visit. Only the app under test's screens count: not the lock screen, the launcher or a browser."""
+def record(run: Path | None, fingerprint: str, screen_title: str, names: list[str], package: str = "") -> int:
+    """Count a visit and return the screen's visits so far (0 when not counted). Only the app under test's
+    screens count: not the lock screen, the launcher or a browser."""
     if run is None or fingerprint in ("", "-"):
-        return
+        return 0
     app = (state.read_json(run / "session.json") or {}).get("package")
     if app and package and package != app:
-        return
+        return 0
     path = run / "logs" / "screens.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     data = state.read_json(path) or {}
@@ -81,6 +82,7 @@ def record(run: Path | None, fingerprint: str, screen_title: str, names: list[st
     entry["title"] = entry["title"] or screen_title
     entry["controls"] += [n for n in names if n not in entry["controls"]]
     state.write_json(path, data)
+    return entry["visits"]
 
 
 def _actions(run: Path) -> list[dict]:

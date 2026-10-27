@@ -31,7 +31,7 @@ def test_title_is_the_topmost_fixed_text_and_list_rows_are_not_controls():
 def _run(tmp_path):
     (tmp_path / "logs").mkdir()
     screens.record(tmp_path, "aaa", "TaskPulse", screens.controls(HOME))
-    screens.record(tmp_path, "aaa", "TaskPulse", ["Projects", "Toggle Status"])  # a second visit adds controls
+    assert screens.record(tmp_path, "aaa", "TaskPulse", ["Projects", "Toggle Status"]) == 2  # adds controls
     screens.record(tmp_path, "bbb", "Project Detail", ["Back", "Export Project CSV"])
     actions = [
         {"t": "2026-10-27T10:00:01.000+01:00", "action": "observe", "fp": "aaa"},
@@ -77,7 +77,7 @@ def test_chips_in_a_sideways_row_are_controls():
 def test_other_apps_screens_and_shared_controls(tmp_path):
     (tmp_path / "logs").mkdir()
     (tmp_path / "session.json").write_text('{"package": "com.example.app"}')
-    screens.record(tmp_path, "lock", "Carrier", ["Unlocked"], package="com.android.systemui")
+    assert screens.record(tmp_path, "lock", "Carrier", ["Unlocked"], package="com.android.systemui") == 0
     screens.record(tmp_path, "home", "Home", ["Settings", "Profile"], package="com.example.app")
     screens.record(tmp_path, "set", "Settings", ["Home", "Settings", "Wipe data"], package="com.example.app")
     actions = [{"t": "2026-10-27T10:00:01.000+01:00", "action": "observe", "fp": "home"},

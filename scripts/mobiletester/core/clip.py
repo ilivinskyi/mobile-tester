@@ -55,8 +55,31 @@ def video_position(timeline: dict, wall: float) -> float | None:
     return None
 
 
+def _last_frame_at(video: Path, position: float) -> float:
+    """Time of the frame on screen at `position`: the last one at or before it (0 when none is found).
+
+    A still screen has no frames of its own, so a clip starting there must begin from that earlier frame.
+    """
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        return position
+    for lookback in (300.0, position):
+        proc = subprocess.run([ffprobe, "-v", "error", "-select_streams", "v", "-read_intervals",
+                               f"{max(0.0, position - lookback):.3f}%{position + 0.001:.3f}",
+                               "-show_entries", "packet=pts_time", "-of", "csv=p=0", str(video)],
+                              capture_output=True, text=True)
+        times = [float(v) for v in proc.stdout.split() if v.replace(".", "", 1).isdigit()]
+        if earlier := [v for v in times if v <= position + 0.001]:
+            return max(earlier)
+    return 0.0
+
+
 def cut_clip(video: Path, wall_from: float, wall_to: float, out: Path, pad: float = 3.0) -> tuple[float, float]:
-    """Cut [wall_from - pad, wall_to + pad] from a recording made by record_start, re-encoded at 540p."""
+    """Cut [wall_from - pad, wall_to + pad] from a recording made by record_start, re-encoded at 540p.
+
+    The clip runs at a constant 30 fps, each frame held until the next one: screenrecord writes frames only
+    when the screen changes, and cutting just the frames that exist would drop still stretches at both ends.
+    """
     timeline = state.read_json(video.with_suffix(".timeline.json"))
     if not timeline:
         raise ClipError(f"no timeline next to {video}; record it with `adt record` or `idt record`")
@@ -70,9 +93,13 @@ def cut_clip(video: Path, wall_from: float, wall_to: float, out: Path, pad: floa
     if not ffmpeg:
         raise ClipError("ffmpeg is required to cut clips")
     out.parent.mkdir(parents=True, exist_ok=True)
-    proc = subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-ss", f"{start:.3f}", "-t", f"{end - start:.3f}",
-                           "-i", str(video), "-vf", "scale=540:-2", "-c:v", "libx264", "-crf", "26",
-                           "-preset", "veryfast", "-an", str(out)], capture_output=True)
+    seek = min(_last_frame_at(video, start), start)
+    length = end - start
+    filters = (f"fps=30,tpad=stop_mode=clone:stop_duration={length + 1:.3f},"
+               f"trim=start={start - seek:.3f}:duration={length:.3f},setpts=PTS-STARTPTS,scale=540:-2")
+    proc = subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-ss", f"{seek:.3f}", "-i", str(video),
+                           "-vf", filters, "-c:v", "libx264", "-crf", "26", "-preset", "veryfast", "-an", str(out)],
+                          capture_output=True)
     if proc.returncode != 0:
         raise ClipError(f"ffmpeg failed: {proc.stderr.decode(errors='replace')}")
     return start, end

@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from mobiletester.core.clip import build_timeline, concat_listing, video_position
+from mobiletester.core.clip import build_timeline, concat_listing, cut_clip, video_position
 
 # Two chunks; the second started 2.6 s after the first one's 180 s ended (screenrecord restart gap).
 TIMELINE = {"chunks": [
@@ -59,3 +59,26 @@ def test_ffmpeg_holds_the_last_frame_for_the_span(tmp_path):
     duration = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
                                      "-of", "csv=p=0", str(out)], capture_output=True, text=True).stdout)
     assert duration == pytest.approx(7.0, abs=0.3)
+
+
+def _probe(path, entries):
+    out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", entries, "-of", "csv=p=0", str(path)],
+                         capture_output=True, text=True).stdout
+    return [float(v) for v in out.replace("\n", ",").split(",") if v.strip()]
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="needs ffmpeg")
+def test_clip_covers_still_screens_at_both_ends(tmp_path):
+    # screenrecord writes frames only when the screen changes: here at 0-3 s, 9-12 s and 18-20 s.
+    video = tmp_path / "session.mp4"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i",
+                    "testsrc=size=64x64:rate=10:duration=20", "-vf",
+                    "select='lt(t,3)+between(t,9,12)+gte(t,18)'", "-fps_mode", "vfr", "-c:v", "libx264",
+                    str(video)], check=True)
+    (tmp_path / "session.timeline.json").write_text(
+        '{"chunks": [{"wall_start": 1000.0, "video_start": 0.0, "duration": 20.0, "span": 20.0}]}')
+    out = tmp_path / "clip.mp4"
+    # 5-15 s starts and ends on a still screen.
+    assert cut_clip(video, 1005.0, 1015.0, out, pad=0) == (5.0, 15.0)
+    start, duration = _probe(out, "format=start_time,duration")
+    assert start == pytest.approx(0.0, abs=0.05) and duration == pytest.approx(10.0, abs=0.2)

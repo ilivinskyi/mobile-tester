@@ -103,7 +103,7 @@ Taps on an element go to a random point near its center that no other control co
 | `session end [--discard-video] [--no-report]` | stops the recording and the app log, then builds the report when `report check` passes |
 | `session status` | active run folder |
 | `record start --out FILE.mp4` / `record stop [--discard]` | `simctl io recordVideo`, on a device `devicectl device capture screen-record` (only where the device offers it, otherwise refused with a reason); writes `FILE.timeline.json` with the wall-clock start |
-| `clip --from T --to T --out FILE [--video V] [--pad 3]` | T = `t` from actions.jsonl, `HH:MM:SS` today, or epoch; default video is the session's |
+| `clip --from T --to T --out FILE [--video V] [--pad 3]` | T = `t` from actions.jsonl, `HH:MM:SS` today, or epoch; default video is the session's; the clip runs at 30 fps and holds the last frame through still screens, so it always covers the whole range |
 | `log start --out FILE (--package BUNDLE \| --process NAME)` / `log stop` | the app's unified log, streamed in the background (simulators only) |
 | `crashes [--package BUNDLE] [--since EPOCH]` | the app's crash reports (`~/Library/Logs/DiagnosticReports/<executable>-*.ips`; on a device copied from its crash logs into `.mobile-tester/state/<udid>/crashes/`) since the session started, with exception and top frames |
 | `hook NAME --package P [-- ARGS]` | runs `.mobile-tester/apps/P/hooks/NAME.(py\|sh)` |

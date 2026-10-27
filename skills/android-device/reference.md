@@ -107,7 +107,7 @@ Taps on an element go to a random point near its center that no other control co
 | `session end [--discard-video] [--no-report]` | stops recording and logcat started by the session, then builds the report when `report check` passes (or lists the problems) |
 | `session status` | active run folder |
 | `record start --out FILE.mp4` / `record stop [--discard]` | 3-minute chunks joined with ffmpeg; writes `FILE.timeline.json` |
-| `clip --from T --to T --out FILE [--video V] [--pad 3]` | T = `t` from actions.jsonl, `HH:MM:SS` today, or epoch; default video is the session's |
+| `clip --from T --to T --out FILE [--video V] [--pad 3]` | T = `t` from actions.jsonl, `HH:MM:SS` today, or epoch; default video is the session's; the clip runs at 30 fps and holds the last frame through still screens, so it always covers the whole range |
 | `logcat start --out FILE [--keep]` / `logcat stop` | background stream |
 | `logcat crashes [--package PKG]` | crash buffer + FATAL/ANR lines since the last clear |
 | `logcat summary [--package PKG] [--run RUN]` | the app's errors, caught exceptions, network failures, StrictMode, long frame drops and out-of-memory lines in the session log, grouped and most serious first; saved as `log_summary` for the report |

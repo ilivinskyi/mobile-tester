@@ -332,6 +332,27 @@ def observe_after(args, changed: bool | None, mode: str | None) -> bool:
     return changed is True
 
 
+def add_plan_args(sp) -> None:
+    """`session start` flags for what the session plan agreed, so starting a session is one call."""
+    sp.add_argument("--time-box", dest="time_box", type=int, metavar="MIN", help="time box in minutes")
+    sp.add_argument("--install-source", dest="install_source", help="where the build came from")
+    for name, what in (("forbidden", "never done this session"), ("grants", "never-done items the plan allowed"),
+                       ("approvals", "system changes approved on a personal phone, 'session plan: ...'")):
+        sp.add_argument(f"--{name}", nargs="+", action="extend", metavar="ITEM", help=what)
+
+
+def apply_plan(args, meta: dict) -> dict:
+    """Put the plan flags of `session start` into the session metadata."""
+    if args.time_box is not None:
+        meta["time_box_min"] = args.time_box
+    if args.install_source:
+        meta.setdefault("app", {})["install_source"] = args.install_source
+    for name in ("forbidden", "grants", "approvals"):
+        if getattr(args, name):
+            meta[name] = list(dict.fromkeys(getattr(args, name)))
+    return meta
+
+
 def print_contrast(last: dict | None, minimum: float, tool: str) -> int:
     """`contrast`: text contrast on the last observed screen (its screenshot and elements)."""
     if not last or not last.get("screenshot") or not Path(last["screenshot"]).is_file():

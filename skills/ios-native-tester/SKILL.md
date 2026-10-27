@@ -49,9 +49,9 @@ Memory mode is Android only for now: offer explore mode on the same flows instea
    - An `.ipa` is a device build and can't run on a simulator: ask for a simulator build, or for the project to build one. On a device, unzip it and install the `.app` from its `Payload/` folder.
    - On a personal device installing needs the user's yes: `idt --fast app install PATH.app --allow-risk "<their approval>"`.
 4. Hooks: run `idt hook setup --package BUNDLE` when the profile defines it.
-5. Start the session: `idt session start --package BUNDLE --mode MODE --charter "..." [--ticket KEY] --record --log` (on a device there is no app log yet: it says so, and `logs/app.log` stays absent; write that in `not_covered`).
+5. Start the session, with the plan in the same call: `idt session start --package BUNDLE --mode MODE --charter "..." [--ticket KEY] [--time-box MIN] [--install-source "..."] [--forbidden "..." ...] [--grants "..." ...] [--approvals "session plan: ..." ...] --record --log` (on a device there is no app log yet: it says so, and `logs/app.log` stays absent; write that in `not_covered`).
    Without `--dir` the run folder is `<reports dir from config.yaml>/<YYYY-MM-DD>-<app>-<mode>[-<ticket>]`, a new one per session; it prints the folder.
-   It also fills the title, the tester, the platform and the device from the profile, config and simulator or device. Then set the ticket, the time box and where the build came from with `idt report set RUN ticket|time_box_min|install_source VALUE` (see [report-standard.md](../mobile-tester-shared/report-standard.md)).
+   It also fills the title, the tester, the platform and the device from the profile, config and simulator or device. Anything agreed later goes in with `idt report set|add RUN ...` (see [report-standard.md](../mobile-tester-shared/report-standard.md)).
 6. Bring the app to the start state (below). This also logs in when the profile's login needs it.
 
 ### Start state

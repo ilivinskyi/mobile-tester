@@ -778,7 +778,7 @@ def cmd_session(args, dev: Device) -> int:
             directory = Path(args.dir) if args.dir else project.default_run_dir(args.package, args.mode, args.ticket)
             defaults = {"title": project.default_title(args.package, args.mode, platform="iOS"),
                         "tester": project.tester()}
-            directory = session.start(dev.udid, directory, meta, defaults)
+            directory = session.start(dev.udid, directory, commands.apply_plan(args, meta), defaults)
             (state.device_dir(dev.udid) / "crash_watch.json").unlink(missing_ok=True)
             started = []
             if args.log and dev.physical:
@@ -1048,6 +1048,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--charter")
     sp.add_argument("--ticket")
     sp.add_argument("--record", action="store_true", help="record the screen to videos/session.mp4")
+    commands.add_plan_args(sp)
     sp.add_argument("--log", action="store_true", help="stream the app's log to logs/app.log (simulators only)")
     sp = ses.add_parser("end", help="stop capture and build the report (when report check passes)")
     sp.add_argument("--discard-video", action="store_true")

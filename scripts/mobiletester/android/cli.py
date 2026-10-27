@@ -612,7 +612,7 @@ def cmd_session(args, adb: Adb) -> int:
             directory = Path(args.dir) if args.dir else project.default_run_dir(args.package, args.mode, args.ticket)
             defaults = {"title": project.default_title(args.package, args.mode, platform="Android"),
                         "tester": project.tester()}
-            directory = session.start(adb.serial, directory, meta, defaults)
+            directory = session.start(adb.serial, directory, commands.apply_plan(args, meta), defaults)
             started = []
             if args.logcat:
                 capture.logcat_start(adb, directory / "logs" / "logcat.txt")
@@ -1042,6 +1042,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--charter")
     sp.add_argument("--ticket")
     sp.add_argument("--record", action="store_true", help="record the screen to videos/session.mp4")
+    commands.add_plan_args(sp)
     sp.add_argument("--logcat", action="store_true", help="stream logcat to logs/logcat.txt")
     sp = ses.add_parser("end", help="stop capture and build the report (when report check passes)")
     sp.add_argument("--discard-video", action="store_true")

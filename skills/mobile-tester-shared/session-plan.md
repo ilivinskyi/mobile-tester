@@ -53,9 +53,9 @@ With autopilot off, every later decision asks as before; the plan still comes fi
 
 ## 3. After Go
 
-Start the session and write the plan into the run, so the report shows what was agreed:
-- `dt report set RUN charter|ticket|time_box_min|install_source VALUE`
-- `dt report add RUN forbidden "<action>" ...`, `dt report add RUN grants "<action>" ...`, and on a personal phone `dt report add RUN approvals "<system change>" ...`
+Start the session with the plan in the same call, so the report shows what was agreed:
+`dt session start ... --charter "..." [--ticket KEY] --time-box MIN --install-source "<where the build came from>" --forbidden "<action>" ... --grants "<action>" ...`, and on a personal phone `--approvals "session plan: <system change>" ...`.
+Something agreed later goes in with `dt report set` / `dt report add`.
 - Add the `.gitignore` lines when the plan listed them.
 
 Pass approvals to the tools as `--approval "session plan: <what was approved>"`; they count only for this session.

@@ -103,7 +103,7 @@ Taps on an element go to a random point near its center that no other control co
 
 | Command | Notes |
 |---|---|
-| `session start [--dir RUN] [--package BUNDLE] [--mode explore\|test-case\|repro\|ui-review\|retest] [--charter C] [--ticket T] [--record] [--log]` | creates `screenshots/ videos/ logs/ bugs/`, `session.json` (platform, device with kind and, for a real device, `personal`, app), `findings.json`; actions log to `logs/actions.jsonl`. Without `--dir`: `<reports dir from .mobile-tester/config.yaml>/<date>-<app>-<mode>[-<ticket>]`. `--log` is skipped with a note on a device |
+| `session start [--dir RUN] [--package BUNDLE] [--mode explore\|test-case\|repro\|ui-review\|retest] [--charter C] [--ticket T] [--record] [--log] [--time-box MIN] [--install-source S] [--forbidden ...] [--grants ...] [--approvals ...]` | creates `screenshots/ videos/ logs/ bugs/`, `session.json` (platform, device with kind and, for a real device, `personal`, app), `findings.json`; actions log to `logs/actions.jsonl`. Without `--dir`: `<reports dir from .mobile-tester/config.yaml>/<date>-<app>-<mode>[-<ticket>]`. `--log` is skipped with a note on a device |
 | `session end [--discard-video] [--no-report]` | stops the recording and the app log, then builds the report when `report check` passes |
 | `session status` | active run folder |
 | `record start --out FILE.mp4` / `record stop [--discard]` | `simctl io recordVideo`, on a device `devicectl device capture screen-record` (only where the device offers it, otherwise refused with a reason); writes `FILE.timeline.json` with the wall-clock start |

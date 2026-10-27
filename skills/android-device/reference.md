@@ -108,7 +108,7 @@ Taps on an element go to a random point near its center that no other control co
 
 | Command | Notes |
 |---|---|
-| `session start [--dir RUN] [--package P] [--mode explore\|test-case\|repro\|ui-review\|retest\|memory] [--charter C] [--ticket T] [--record] [--logcat]` | creates `screenshots/ videos/ logs/ bugs/`, `session.json`, `findings.json`; actions log to `logs/actions.jsonl`. Without `--dir`: a new folder `<reports dir from .mobile-tester/config.yaml>/<date>-<app>-<mode>[-<ticket>]`. Fills `title` and `tester` from the profile and config when missing |
+| `session start [--dir RUN] [--package P] [--mode explore\|test-case\|repro\|ui-review\|retest\|memory] [--charter C] [--ticket T] [--record] [--logcat] [--time-box MIN] [--install-source S] [--forbidden ...] [--grants ...] [--approvals ...]` | creates `screenshots/ videos/ logs/ bugs/`, `session.json`, `findings.json`; actions log to `logs/actions.jsonl`. Without `--dir`: a new folder `<reports dir from .mobile-tester/config.yaml>/<date>-<app>-<mode>[-<ticket>]`. Fills `title` and `tester` from the profile and config when missing |
 | `session end [--discard-video] [--no-report]` | stops recording and logcat started by the session, then builds the report when `report check` passes (or lists the problems) |
 | `session status` | active run folder |
 | `record start --out FILE.mp4` / `record stop [--discard]` | 3-minute chunks joined with ffmpeg; writes `FILE.timeline.json` |

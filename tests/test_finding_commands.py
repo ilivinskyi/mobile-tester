@@ -122,3 +122,19 @@ def test_result_checks_what_the_report_checks(run, capsys):
     out = capsys.readouterr().out
     assert "needs --finding or --note" in out and "no finding B9" in out and "looks like K-3" in out
     assert "test_results" not in json.loads((run / "session.json").read_text(encoding="utf-8"))
+
+
+def test_session_start_takes_the_plan_in_one_call():
+    from mobiletester.android.cli import build_parser
+    from mobiletester.core import commands
+
+    args = build_parser().parse_args([
+        "session", "start", "--package", "com.example.app", "--mode", "explore", "--time-box", "30",
+        "--install-source", "TaskPulse-debug.apk from the team share", "--forbidden", "placing an order",
+        "--forbidden", "logging out", "--grants", "deleting test tasks", "--approvals", "session plan: go offline"])
+    meta = commands.apply_plan(args, {"mode": "explore", "app": {"package": "com.example.app"}})
+    assert meta["time_box_min"] == 30 and meta["forbidden"] == ["placing an order", "logging out"]
+    assert meta["app"] == {"package": "com.example.app", "install_source": "TaskPulse-debug.apk from the team share"}
+    assert meta["grants"] == ["deleting test tasks"] and meta["approvals"] == ["session plan: go offline"]
+    bare = build_parser().parse_args(["session", "start", "--package", "p"])
+    assert commands.apply_plan(bare, {"mode": None}) == {"mode": None}  # nothing set, nothing added

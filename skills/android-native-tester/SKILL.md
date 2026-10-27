@@ -39,9 +39,9 @@ Start nothing on the device before Go.
    - From a file: `adt apk inspect FILE`. Do not install when the signers differ between splits, the signer differs from `expected_signer_sha256` in the profile, the package name doesn't match, or notable permissions don't fit the app. Report what you found and ask.
    - Install with `adt --fast app install FILE` (setup step).
 4. Hooks: run `adt hook setup --package PKG` when the profile defines it.
-5. Start the session: `adt session start --package PKG --mode MODE --charter "..." [--ticket KEY] --record --logcat`.
+5. Start the session, with the plan in the same call: `adt session start --package PKG --mode MODE --charter "..." [--ticket KEY] [--time-box MIN] [--install-source "..."] [--forbidden "..." ...] [--grants "..." ...] [--approvals "session plan: ..." ...] --record --logcat`.
    Without `--dir` the run folder is `<reports dir from config.yaml>/<YYYY-MM-DD>-<app>-<mode>[-<ticket>]`, a new one per session; it prints the folder.
-   It also fills the title and the tester from the profile and config. Then set the ticket, the time box and where the build came from with `adt report set RUN ticket|time_box_min|install_source VALUE` (see [report-standard.md](../mobile-tester-shared/report-standard.md)).
+   It also fills the title and the tester from the profile and config. Anything agreed later goes in with `adt report set|add RUN ...` (see [report-standard.md](../mobile-tester-shared/report-standard.md)).
 6. "Show taps" as `show_taps` says (default: on for test devices and emulators; on a personal phone only when the plan approved it, with `adt touches on --approval "session plan: ..."`).
 7. Performance baseline (unless the user turned it off): `adt perf startup PKG` (three cold starts, each after a force-stop), then `adt perf frames PKG --reset`.
 8. Bring the app to the start state (below). This also logs in when the profile's login needs it.

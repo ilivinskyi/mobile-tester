@@ -12,7 +12,7 @@ import json
 import re
 from pathlib import Path
 
-from . import report_html
+from . import report_html, screens
 from .report_text import (
     EVIDENCE_TYPES,
     PRIORITIES,
@@ -126,7 +126,8 @@ def build(run: Path) -> list[Path]:
 
     csv_path = run / "findings.csv"
     has_csv = any(fileable(f) for f in findings)
-    write(run / "index.html", report_html.render_index(session, findings, csv=has_csv))
+    write(run / "index.html", report_html.render_index(session, findings, csv=has_csv,
+                                                       screens=screens.inventory(run)["screens"]))
     if has_csv:
         write(csv_path, render_jira_csv(session, findings))
     else:

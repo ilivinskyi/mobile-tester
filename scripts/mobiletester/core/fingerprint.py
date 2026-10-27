@@ -23,10 +23,10 @@ def screen_fingerprint(package: str, activity: str, elements: list[Element]) -> 
     Anything that visibly adds or removes fixed parts is a different state, e.g. an app hiding its tab bar
     while the keyboard is open, or a banner over the screen.
     """
-    lists = [e.z for e in _lists(elements)]
+    lists = [e.z for e in content_lists(elements)]
     parts = {f"activity:{activity}"}
     for el in elements:
-        if el.sr_only or _inside_any(el.z, lists):
+        if el.sr_only or inside_any(el.z, lists):
             continue  # list rows and screen-reader text are content
         if el.editable:
             parts.add(f"field:{el.cls}#{el.short_id}:{_stable(el.hint)}")  # never the typed text
@@ -38,17 +38,17 @@ def screen_fingerprint(package: str, activity: str, elements: list[Element]) -> 
     return _digest([package, *sorted(parts)])
 
 
-def _lists(elements: list[Element]) -> list[Element]:
+def content_lists(elements: list[Element]) -> list[Element]:
     """Scroll containers that hold content. A scroll container wrapping another one of about its own size
     is the page itself (web pages become scrollable when the keyboard opens) and holds the fixed parts too."""
     scrollables = [e for e in elements if e.scrollable]
     return [
         s for s in scrollables
-        if not any(_inside_any(t.z, [s.z]) and t.bounds.area >= 0.7 * s.bounds.area for t in scrollables)
+        if not any(inside_any(t.z, [s.z]) and t.bounds.area >= 0.7 * s.bounds.area for t in scrollables)
     ]
 
 
-def _inside_any(z: list[int], containers: list[list[int]]) -> bool:
+def inside_any(z: list[int], containers: list[list[int]]) -> bool:
     # An ancestor's paint-order key is a strict prefix of its descendants' keys.
     return any(len(c) < len(z) and z[:len(c)] == c for c in containers)
 

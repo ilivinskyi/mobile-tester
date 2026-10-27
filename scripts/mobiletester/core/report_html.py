@@ -661,7 +661,15 @@ In the viewer the arrow keys switch evidence, <kbd>+</kbd> and <kbd>-</kbd> zoom
 </dl></details>"""
 
 
-def render_index(session: dict, findings: list[dict], csv: bool = False) -> str:
+def _screens_table(screens: list[dict]) -> str:
+    rows = "".join(f'<tr><th>{_e(s["title"])}</th><td>{s["visits"]}</td>'
+                   f'<td>{_e(", ".join(s["untried"])) or "-"}</td></tr>' for s in screens)
+    return (f'<h2>Screens visited</h2><p class="sub">{len(screens)} screens, from what the session observed. '
+            'Controls never tapped on a screen show where testing did not go.</p>'
+            f'<table class="screens"><tr><th>Screen</th><th>Visits</th><th>Not tried</th></tr>{rows}</table>')
+
+
+def render_index(session: dict, findings: list[dict], csv: bool = False, screens: list[dict] | None = None) -> str:
     in_scope = [f for f in findings if f["status"] != "Retracted" and not outside(f)]
     noticed = _outside_order(findings)
     retracted = _retracted(findings)
@@ -711,6 +719,8 @@ def render_index(session: dict, findings: list[dict], csv: bool = False) -> str:
         if session.get(key):
             items = "".join(f"<li>{_e(i)}</li>" for i in session[key])
             body.append(f'<h2>{heading}</h2><ul class="plain">{items}</ul>')
+    if screens:
+        body.append(_screens_table(screens))
     evidence = session.get("evidence") or {}
     links = " ".join(f'<a href="{_e(p)}">{_e(k.replace("_", " "))}</a>' for k, p in evidence.items())
     body.append(f'<details class="more"><summary>Session details</summary>{_table(environment(session))}'

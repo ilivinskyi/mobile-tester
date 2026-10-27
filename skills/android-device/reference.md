@@ -49,6 +49,8 @@ With `--bounds`: `[7] "Storage | 16% used" #storage_row @(540,1396) 1080x195 [cl
 
 `contrast [--min 4.5]` reads the text and background colour of every text on the last observe's screenshot and lists those below the ratio (WCAG AA: 4.5:1 normal text, 3:1 large), lowest first (no device call). Check each on the screenshot: a picture behind text can fool it.
 
+`screens RUN` lists the screens the session observed, with the controls never tapped on each, and the taps that changed nothing (a dead button, or a missed tap). Works without a device; the report shows the same screen list.
+
 Actions (`tap`, `type`, `key`, `scroll`, `swipe`) end with the new element list when the screen changed: `--observe` always lists it, `--no-observe` never. Not in repro sessions or with `--fast`.
 
 State files per device under `MT_HOME` (default `.mobile-tester/state/<serial>/` in the project): `latest.json`, `latest.xml`, `latest.png`, `latest_preview.jpg`, `device.json` (cached facts).

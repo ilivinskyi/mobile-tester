@@ -1117,7 +1117,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 _NO_DEVICE = {"doctor": cmd_doctor, "devices": cmd_devices, "report": commands.cmd_report, "apk": cmd_apk,
-              "issues": commands.cmd_issues, "finding": commands.cmd_finding}
+              "issues": commands.cmd_issues, "finding": commands.cmd_finding,
+              "screens": commands.cmd_screens}
 _WITH_DEVICE = {
     "info": cmd_info, "observe": cmd_observe, "rotate": cmd_rotate, "contrast": cmd_contrast,
     "inspect": cmd_inspect, "tap": cmd_tap, "type": cmd_type,

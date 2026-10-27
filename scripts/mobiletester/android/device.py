@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from ..core import annotate, session, state
+from ..core import annotate, screens, session, state
 from ..core.fingerprint import screen_fingerprint
 from . import hierarchy, keyboard
 from .adb import Adb, AdbError
@@ -208,9 +208,12 @@ def observe(adb: Adb, save_dir: Path | None = None, name: str | None = None, wit
     if save_dir is not None:
         obs = _save_copy(obs, xml, save_dir, name or stamp)
     state.write_json(ddir / "latest.json", obs.to_dict())
-    # Screens visited, for `report diff` between runs (and a future coverage map).
+    # Screens visited: the session's screen list (`adt screens`) and `report diff` between runs.
+    screen_title = screens.title(snap.elements, snap.screen.bottom)
+    screens.record(session.run_dir(adb.serial), fp, screen_title, screens.controls(snap.elements),
+                   package)
     session.log_action(adb.serial, {"action": "observe", "mode": "read", "fp": fp,
-                                    "screen": f"{package}/{activity.removeprefix(package)}"})
+                                    "screen": f"{package}/{activity.removeprefix(package)}", "title": screen_title})
     return obs
 
 

@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from ..core import annotate, session, state
+from ..core import annotate, screens, session, state
 from ..core.fingerprint import screen_fingerprint
 from ..core.ui import Bounds, Element, Snapshot
 from . import devicectl, hierarchy, simctl
@@ -218,9 +218,12 @@ def observe(dev: Device, bundle_id: str | None = None, save_dir: Path | None = N
                 copy.write_bytes(source.read_bytes())
                 setattr(obs, attr, copy)
     state.write_json(ddir / "latest.json", obs.to_dict())
-    # Screens visited, for `report diff` between runs (and a future coverage map).
+    # Screens visited: the session's screen list (`idt screens`) and `report diff` between runs.
+    screen_title = screens.title(snap.elements, snap.screen.bottom)
+    screens.record(session.run_dir(dev.udid), fp, screen_title, screens.controls(snap.elements),
+                   target)
     session.log_action(dev.udid, {"action": "observe", "mode": "read", "fp": fp,
-                                  "screen": f"{target} {title}".strip()})
+                                  "screen": f"{target} {title}".strip(), "title": screen_title})
     return obs
 
 

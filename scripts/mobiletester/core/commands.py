@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from . import contrast, devices, diff, findings, lifecycle, report, telemetry, ui
+from . import contrast, devices, diff, findings, lifecycle, report, screens, telemetry, ui
 from .state import PROJECT_DIR
 
 EXIT_OK, EXIT_USAGE, EXIT_DEVICE, EXIT_NOT_FOUND, EXIT_BLOCKED, EXIT_DECISION = 0, 2, 3, 4, 5, 6
@@ -87,6 +87,12 @@ def cmd_issues(args) -> int:
             issue = lifecycle.set_issue(config, args.package, args.key, args.status, note=args.note or "",
                                         run=args.run or "", build=args.build or "")
             print(f"{issue['key']} is now {issue['status']}")
+    return EXIT_OK
+
+
+def cmd_screens(args) -> int:
+    """`screens RUN`: screens visited, controls never tried on each, taps that changed nothing."""
+    print("\n".join(screens.lines(screens.inventory(Path(args.dir)))))
     return EXIT_OK
 
 
@@ -225,6 +231,9 @@ def subparsers(parser: argparse.ArgumentParser, common: argparse.ArgumentParser,
 
 def add_parsers(sub, common: argparse.ArgumentParser) -> None:
     """The report and issues commands, on the subcommand group of either CLI."""
+    p = sub.add_parser("screens", help="the session's screens: visited, controls never tried on each, and taps "
+                                       "with no visible change (dead buttons?)")
+    p.add_argument("dir", help="run folder")
     p = sub.add_parser("report", help="validate and render the standard report of a run folder")
     rep = subparsers(p, common, dest="report_cmd", required=True)
     for name in ("check", "build"):

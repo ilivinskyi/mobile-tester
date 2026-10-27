@@ -109,7 +109,7 @@ Taps on an element go to a random point near its center that no other control co
 | `hook NAME --package P [-- ARGS]` | runs `.mobile-tester/apps/P/hooks/NAME.(py\|sh)` |
 | `check NAME --package P [-- ARGS]` | runs `.mobile-tester/apps/P/checks/NAME.(py\|sh)` |
 | `report check RUN` / `report build RUN` / `report confirm ...` | as in adt: the same report on both platforms |
-| `finding add\|update\|retract`, `report set\|add\|diff` | as in adt: findings and session facts without editing files, and two runs compared |
+| `finding add\|update\|retract`, `report set\|add\|result\|diff` | as in adt: findings and session facts without editing files, and two runs compared |
 | `issues list\|sync\|set ...` | as in adt: the app's known issues in `.mobile-tester/apps/P/known-issues.json` |
 
 Hook and check scripts receive `IDT_UDID`, `IDT` (command line for idt), `MT_PLATFORM` (`iOS`), `MT_PYTHON` and `MT_SCRIPT` (to call idt from Python), `MT_PACKAGE`, `MT_APP_DIR`, `MT_RUN_DIR`, and `MT_SECRETS` when `secrets.local.yaml` exists.

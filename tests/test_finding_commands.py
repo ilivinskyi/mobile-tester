@@ -96,3 +96,29 @@ def test_plan_lists_and_open_questions_reach_the_report(run):
     assert rows["Allowed by the user"] == "log out and back in" and rows["System changes approved"] == "airplane mode"
     page = report_html.render_index(dict(data, title="T"), [])
     assert "<h2>Questions for you</h2>" in page and "Should the basket keep items after logout?" in page
+
+
+def _results(run):
+    return json.loads((run / "session.json").read_text(encoding="utf-8"))["test_results"]
+
+
+def test_retest_results_are_recorded_and_a_rerun_replaces_them(run, capsys):
+    assert main(["report", "result", str(run), "--case", "K-3 Counter resets", "--issue", "K-3",
+                 "--result", "fail", "--note", "1 of 2 runs passed"]) == 0
+    assert main(["report", "result", str(run), "--case", "K-3 Counter resets", "--issue", "K-3",
+                 "--result", "pass", "--note", "2 of 2 runs passed"]) == 0
+    assert main(["report", "result", str(run), "--case", "TC-1 Add", "--step", "2", "--result", "skipped"]) == 0
+    assert _results(run) == [
+        {"case": "K-3 Counter resets", "result": "pass", "issue": "K-3", "note": "2 of 2 runs passed"},
+        {"case": "TC-1 Add", "result": "skipped", "step": "2"},
+    ]
+    assert "test result: TC-1 Add step 2 = skipped" in capsys.readouterr().out
+
+
+def test_result_checks_what_the_report_checks(run, capsys):
+    assert main(["report", "result", str(run), "--case", "TC-1", "--result", "blocked"]) == 2
+    assert main(["report", "result", str(run), "--case", "TC-1", "--result", "fail", "--finding", "B9"]) == 2
+    assert main(["report", "result", str(run), "--case", "K-3", "--issue", "3", "--result", "pass"]) == 2
+    out = capsys.readouterr().out
+    assert "needs --finding or --note" in out and "no finding B9" in out and "looks like K-3" in out
+    assert "test_results" not in json.loads((run / "session.json").read_text(encoding="utf-8"))

@@ -135,6 +135,7 @@ Python scripts run with `uv run --script`, so they may declare their own depende
 | `finding update RUN ID [same flags]` | changes the given fields; `--evidence` adds files (`--clear-evidence` first to replace) |
 | `finding retract RUN ID --reason "..."` | status Retracted with the reason; findings are never deleted |
 | `report set RUN FIELD VALUE` | session.json `title`, `subtitle`, `summary`, `charter`, `tester`, `mode`, `ticket`, `time_box_min`, and the app's `install_source` |
+| `report result RUN --case C --result pass\|fail\|blocked\|skipped [--step N] [--issue K-n] [--finding B2] [--note N]` | a test-case or retest result in `test_results`, checked at once (fail needs a finding or note, the finding must exist); the same case and step again replaces it |
 | `report add RUN FIELD VALUE ...` | adds to `worked_well`, `coverage`, `not_covered`, `setup_steps_fast` |
 | `report decision RUN KEY VALUE [--why "..."]` | logs an autopilot decision (key from autopilot.md) in session.json and `logs/decisions.md`; the report lists them |
 | `report telemetry RUN [--transcript F] [--since T] [--until T]` | technical data of the run: agent tokens and cost at API list prices (from the Claude Code transcript), time per phase, tool calls, device actions, evidence size; into `session.json` ("Technical data" in the report) and one row per run in `<reports dir>/telemetry.csv` |

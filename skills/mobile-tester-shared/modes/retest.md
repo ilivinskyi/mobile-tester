@@ -20,8 +20,9 @@ Goal: for each open known issue of the app, a clear verdict on the new build: Fi
 Run the case like test-case mode, in human mode: reset to the start state as in "Start state" in the entry skill (`android-native-tester` or `ios-native-tester`) before each run, then set up its preconditions.
 The case **passes when the bug no longer happens**: the expected result is shown and the "Bug behaviour" doesn't appear.
 - Run at least twice. A bug that reproduced only sometimes needs as many runs as it originally took to show up (see its reproducibility).
-- Record the result in `session.json` `test_results` with the issue key:
-  `{"case": "K-3 <title>", "issue": "K-3", "result": "pass" | "fail" | "blocked", "note": "..."}`.
+- Record the result with the issue key, once all runs of the case are done:
+  `dt report result RUN --case "K-3 <title>" --issue K-3 --result pass|fail|blocked --note "<N of M runs passed>"`.
+  A fail needs `--finding` (write the finding first, below); recording the case again replaces the result.
   The report shows pass as **Fixed**, fail as **Still reproduces**, blocked as **Can't verify**.
 - Still reproduces: write a finding for this session with `"known_issue": "K-3"` (steps from the case, evidence, a clip). It shows as "seen again".
 - Something new and different broke on the way: write a normal new finding.

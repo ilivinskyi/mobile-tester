@@ -93,7 +93,7 @@ def cmd_issues(args) -> int:
 def cmd_report(args) -> int:
     if args.report_cmd == "confirm":
         return _report_confirm(args)
-    if args.report_cmd in ("set", "add"):
+    if args.report_cmd in ("set", "add", "result"):
         return _report_fields(args)
     if args.report_cmd == "diff":
         print("\n".join(diff.compare(Path(args.dir), Path(args.other))))
@@ -148,6 +148,12 @@ def _report_fields(args) -> int:
     try:
         if args.report_cmd == "set":
             findings.session_set(run, args.field, args.value)
+        elif args.report_cmd == "result":
+            entry = findings.record_result(run, args.case, args.result, step=args.step or "", issue=args.issue or "",
+                                           finding=args.finding or "", note=args.note or "")
+            print(f"test result: {entry['case']}" + (f" step {entry['step']}" if entry.get("step") else "")
+                  + f" = {entry['result']}")
+            return EXIT_OK
         else:
             findings.session_add(run, args.field, args.values)
     except (findings.FindingError, ValueError) as exc:
@@ -253,6 +259,16 @@ def add_parsers(sub, common: argparse.ArgumentParser) -> None:
     rp.add_argument("dir")
     rp.add_argument("field", choices=list(settable))
     rp.add_argument("value")
+    rp = rep.add_parser("result", help="record a test case or retested known issue result (session.json "
+                                       "test_results); the same case and step again replaces it")
+    rp.add_argument("dir")
+    rp.add_argument("--case", required=True, help="test case name, e.g. 'TC-2 Add an item' or 'K-3 <title>'")
+    rp.add_argument("--result", required=True, choices=list(report.TEST_RESULTS),
+                    help="retest: pass = Fixed, fail = Still reproduces, blocked = Can't verify")
+    rp.add_argument("--step", help="step number or name, when results are kept per step")
+    rp.add_argument("--issue", help="retest: the known issue key, e.g. K-3")
+    rp.add_argument("--finding", help="the finding written for a fail, e.g. B2")
+    rp.add_argument("--note", help="why it was blocked, or e.g. '2 of 2 runs passed'")
     rp = rep.add_parser("add", help="add items to a session.json list: " + ", ".join(findings.SESSION_LISTS))
     rp.add_argument("dir")
     rp.add_argument("field", choices=list(findings.SESSION_LISTS))

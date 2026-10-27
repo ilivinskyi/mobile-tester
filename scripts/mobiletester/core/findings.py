@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -127,6 +128,30 @@ def record_decision(run: Path, key: str, value: str, why: str) -> dict:
     log.parent.mkdir(exist_ok=True)
     with log.open("a", encoding="utf-8") as fh:
         fh.write(f"- {entry['time'][11:19]} {key} = {value}" + (f": {why}" if why else "") + "\n")
+    return entry
+
+
+def record_result(run: Path, case: str, result: str, step: str = "", issue: str = "", finding: str = "",
+                  note: str = "") -> dict:
+    """A test case (or retested known issue) result in session.json `test_results`.
+
+    Recording the same case and step again replaces the earlier result: a rerun gives the case's final word.
+    """
+    if result not in report.TEST_RESULTS:
+        raise FindingError(f"result must be one of {report.TEST_RESULTS}")
+    if result in ("fail", "blocked") and not (finding or note):
+        raise FindingError(f"a {result} result needs --finding or --note")
+    if issue and not re.fullmatch(r"K-\d+", issue):
+        raise FindingError(f"--issue looks like K-3, not {issue!r}")
+    if finding and not any(f.get("id") == finding for f in _load(run, "findings.json").get("findings", [])):
+        raise FindingError(f"no finding {finding} in this run: write it first (`finding add`)")
+    data = _load(run, "session.json")
+    entry = {"case": case, "result": result}
+    entry.update({k: v for k, v in (("step", step), ("issue", issue), ("finding", finding), ("note", note)) if v})
+    results = [r for r in data.get("test_results", [])
+               if (r.get("case"), r.get("step", "")) != (case, step)]
+    data["test_results"] = [*results, entry]
+    write_json(run / "session.json", data)
     return entry
 
 

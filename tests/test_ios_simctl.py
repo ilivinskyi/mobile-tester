@@ -45,3 +45,27 @@ def test_runner_port_is_stable_per_simulator_and_in_range():
     assert port == runner.port_for("AB64CA72-0FAA-47F0-846F-B2D82CA4C33A")
     assert 22087 <= port < 22887
     assert port != runner.port_for("7AC79805-4D36-4F8B-921A-90B662F74602")
+
+
+def test_simulator_helpers_call_simctl_once(monkeypatch, tmp_path):
+    calls = []
+
+    class Done:
+        returncode, stdout, stderr = 0, b"", b""
+
+    monkeypatch.setattr(simctl, "xcrun", lambda: "xcrun")
+    monkeypatch.setattr(simctl.subprocess, "run", lambda argv, **kw: calls.append(argv) or Done())
+    photo = tmp_path / "p.jpg"
+    simctl.privacy("U", "grant", "photos", "com.example")
+    simctl.open_url("U", "example://x")
+    simctl.ui_get("U", "appearance")
+    simctl.ui_set("U", "appearance", "dark")
+    simctl.add_media("U", photo)
+    simctl.clipboard_get("U")
+    simctl.clipboard_set("U", "hi")
+    simctl.set_location("U", 52.37, 4.9)
+    simctl.clear_location("U")
+    assert len(calls) == 9
+    for argv in calls:
+        assert argv[:2] == ["xcrun", "simctl"] and argv[2] != "simctl", argv
+    assert calls[1] == ["xcrun", "simctl", "openurl", "U", "example://x"]

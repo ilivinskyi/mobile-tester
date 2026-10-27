@@ -208,7 +208,7 @@ PRIVACY_SERVICES = ("all", "calendar", "contacts-limited", "contacts", "location
 
 def privacy(udid: str, action: str, service: str, bundle_id: str) -> None:
     """Grant, revoke or reset one privacy permission of an app on a simulator."""
-    run("simctl", "privacy", udid, action, service, bundle_id)
+    run("privacy", udid, action, service, bundle_id)
 
 
 def url_schemes(plist: dict) -> list[str]:
@@ -235,7 +235,7 @@ def links(app: Path) -> list[str]:
 
 
 def open_url(udid: str, url: str) -> None:
-    run("simctl", "openurl", udid, url)
+    run("openurl", udid, url)
 
 
 CONTENT_SIZES = ("extra-small", "small", "medium", "large", "extra-large", "extra-extra-large",
@@ -246,11 +246,11 @@ CONTENT_SIZES = ("extra-small", "small", "medium", "large", "extra-large", "extr
 
 def ui_get(udid: str, setting: str) -> str:
     """`appearance` (light/dark) or `content_size` (text size) of a simulator."""
-    return run("simctl", "ui", udid, setting).decode().strip()
+    return run("ui", udid, setting).decode().strip()
 
 
 def ui_set(udid: str, setting: str, value: str) -> None:
-    run("simctl", "ui", udid, setting, value)
+    run("ui", udid, setting, value)
 
 
 def ui_restore(udid: str) -> dict[str, str | None]:
@@ -264,23 +264,23 @@ def ui_restore(udid: str) -> dict[str, str | None]:
 
 
 def add_media(udid: str, file: Path) -> None:
-    run("simctl", "addmedia", udid, str(file), timeout=120)
+    run("addmedia", udid, str(file), timeout=120)
 
 
 def clipboard_get(udid: str) -> str:
-    return run("simctl", "pbpaste", udid).decode("utf-8", errors="replace")
+    return run("pbpaste", udid).decode("utf-8", errors="replace")
 
 
 def clipboard_set(udid: str, text: str) -> None:
-    run("simctl", "pbcopy", udid, input_=text.encode("utf-8"))
+    run("pbcopy", udid, input_=text.encode("utf-8"))
 
 
 def set_location(udid: str, latitude: float, longitude: float) -> None:
-    run("simctl", "location", udid, "set", f"{latitude},{longitude}")
+    run("location", udid, "set", f"{latitude},{longitude}")
 
 
 def clear_location(udid: str) -> None:
-    run("simctl", "location", udid, "clear")
+    run("location", udid, "clear")
 
 
 # Face ID ("pearl") and Touch ID ("fingerTouch") simulator events; both are sent, the device has one of them.

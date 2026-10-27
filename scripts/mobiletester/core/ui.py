@@ -357,18 +357,22 @@ def listing(elements: list[Element], previous: list[Element] | None = None, boun
             depth_step: int = 4) -> list[str]:
     """The `elements (...)` block of an observation.
 
-    With `previous` (the last observation of the same screen), elements that look exactly as before are left
-    out: on a screen the agent already read, only what changed is news. Indices still refer to the full list.
+    With `previous` (the last observation of the same screen), elements that look exactly as before, at the
+    same index, are left out: on a screen the agent already read, only what changed is news. An element that
+    only moved to another index (a banner or an error appeared above it) is shown again, so no stale index
+    from the last listing gets tapped. Indices always refer to the full list.
     """
     lines = [el.describe(bounds) for el in elements]
     indents = ["  " * min(el.depth // depth_step, 3) for el in elements]
     if previous is None:
         return [f"elements ({len(elements)}):", *(i + line for i, line in zip(indents, lines, strict=True))]
-    seen = {_without_index(el.describe(bounds)) for el in previous}
-    fresh = [(i, line) for i, line in zip(indents, lines, strict=True) if _without_index(line) not in seen]
+    before = [el.describe(bounds) for el in previous]
+    exact, looks = set(before), {_without_index(line) for line in before}
+    fresh = [(i, line) for i, line in zip(indents, lines, strict=True) if line not in exact]
+    moved = sum(1 for _, line in fresh if _without_index(line) in looks)
     hidden = len(lines) - len(fresh)
-    head = (f"elements ({len(elements)}; same screen as the last observe, {hidden} unchanged not shown, "
-            f"`--full` lists all):")
+    head = (f"elements ({len(elements)}; same screen as the last observe, {hidden} unchanged not shown"
+            + (f", {moved} shown again at a new index" if moved else "") + ", `--full` lists all):")
     return [head, *(i + line for i, line in fresh)] if fresh else [head, "  (nothing changed)"]
 
 

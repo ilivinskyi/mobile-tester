@@ -72,3 +72,18 @@ def test_ios_inspect_finds_the_exact_node():
     field = ui.find_by_text(snap, "Name")[0]
     lines = ui.inspect_lines(field, *ios.raw_node(data, field))
     assert lines[1].startswith("node: frame=32,187.333,338,22 type=TextField placeholder=Name")
+
+
+def _els(*labels):
+    return [ui.Element(index=i, cls="Button", text=label, desc="", resource_id="", hint="",
+                       bounds=ui.Bounds(0, 100 * i, 1080, 100 * i + 90), label=label, clickable=True)
+            for i, label in enumerate(labels, 1)]
+
+
+def test_elements_that_moved_to_a_new_index_are_shown_again():
+    before = _els("Title", "Save", "Cancel")
+    after = _els("Title", "Error: name is required", "Save", "Cancel")  # a banner pushes Save and Cancel down
+    lines = ui.listing(after, previous=before)
+    assert lines[0].endswith("1 unchanged not shown, 2 shown again at a new index, `--full` lists all):")
+    assert lines[1:] == ['[2] Button "Error: name is required" [click]', '[3] Button "Save" [click]',
+                         '[4] Button "Cancel" [click]']

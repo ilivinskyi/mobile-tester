@@ -102,6 +102,7 @@ While testing:
 - Save evidence with `idt observe --name <id>-<what>` and note the action log time for video clips.
 - A finding that matches an open known issue (same behaviour in the same area): set `"known_issue": "K-n"` and keep it short; don't re-investigate. It shows as "seen again".
 - `CRASH right after this action` in an action's output: the crash watch found a new crash report of the app. Capture evidence (`idt observe --image-only`, `idt crashes`), write the finding at once with the step that triggered it, then follow the `crash_found` decision (default: restart the app and continue).
+- Explore mode starts with a breadth tour of every screen and does the screen checks on each first visit (typos, `idt contrast`, back, controls that do nothing): [modes/explore.md](../mobile-tester-shared/modes/explore.md). `idt screens RUN` shows where you haven't been.
 - Watch the time box. Note the halfway point in your progress, and wrap up when it runs out (`time_box_end`).
 - With autopilot, ask nothing mid-run unless testing can't go on at all (device gone, app won't start, a login only the user can do).
 
@@ -109,14 +110,15 @@ While testing:
 
 1. `idt session end`: it stops the recording and the app log, and builds the report right away when `idt report check` passes (otherwise it lists what to fix). Run the teardown hook if the profile has one.
 2. Cut one clip per bug: `idt clip --from <t of first repro step> --to <t of last> --out RUN/videos/<id>.mp4`, and add it to the finding's evidence.
-3. `idt issues sync RUN --package BUNDLE`: new bugs and accessibility findings join the app's known issues (each with a regression test case draft in `.mobile-tester/apps/<bundle id>/tests/`), and known issues seen again get a sighting.
-4. `idt report check RUN` and fix every problem. When the plan has telemetry on, run `idt report telemetry RUN`: it records the technical data (agent tokens and cost, time per phase, tool and device activity) in `session.json`, adds a row to `<reports dir>/telemetry.csv` and rebuilds the report.
+3. `idt screens RUN`: screens never visited and untried controls that lead somewhere go into `not_covered` (`idt report add RUN not_covered ...`); a tap with no visible change that you didn't explain is a lead, not a finding.
+4. `idt issues sync RUN --package BUNDLE`: new bugs and accessibility findings join the app's known issues (each with a regression test case draft in `.mobile-tester/apps/<bundle id>/tests/`), and known issues seen again get a sighting.
+5. `idt report check RUN` and fix every problem. When the plan has telemetry on, run `idt report telemetry RUN`: it records the technical data (agent tokens and cost, time per phase, tool and device activity) in `session.json`, adds a row to `<reports dir>/telemetry.csv` and rebuilds the report.
    It reads the newest Claude Code transcript of the project; in another agent pass `--transcript` if it keeps a compatible one, otherwise the report says tokens weren't collected.
    Open `index.html` in a browser (the browser pane in Claude Code) and look at it; in autopilot `report_build` decides, and it never waits for a question.
-5. Ask the collected questions in one round (at most four, the rest in a second): the `open_questions`, the manual reproduction of each Unconfirmed finding ([modes/repro.md](../mobile-tester-shared/modes/repro.md): on a simulator the person clicks in Simulator.app, on a device they use it by hand), and whether to prepare Jira issues. Record each answer (`idt finding update`, `idt report confirm`).
-6. Jira: each finding page has Copy title and Copy for Jira buttons, the `bugs/<id>.md` files are paste-ready, and `findings.csv` imports them all through Jira's CSV import. Create issues through the Atlassian connector only when the user explicitly approves each one.
-7. Append what you learned about the app (screen map, quirks, what a fresh start shows: `reset.after`) to the app's profile and `notes.md`, after telling the user.
-8. Answer with: where the report is, the findings by severity, known issues seen again, unconfirmed items, what was skipped as never done, and what was not covered.
+6. Ask the collected questions in one round (at most four, the rest in a second): the `open_questions`, the manual reproduction of each Unconfirmed finding ([modes/repro.md](../mobile-tester-shared/modes/repro.md): on a simulator the person clicks in Simulator.app, on a device they use it by hand), and whether to prepare Jira issues. Record each answer (`idt finding update`, `idt report confirm`).
+7. Jira: each finding page has Copy title and Copy for Jira buttons, the `bugs/<id>.md` files are paste-ready, and `findings.csv` imports them all through Jira's CSV import. Create issues through the Atlassian connector only when the user explicitly approves each one.
+8. Append what you learned about the app (screen map, quirks, what a fresh start shows: `reset.after`) to the app's profile and `notes.md`, after telling the user.
+9. Answer with: where the report is, the findings by severity, known issues seen again, unconfirmed items, what was skipped as never done, and what was not covered.
 
 ## Manual checks, now or later
 

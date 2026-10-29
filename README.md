@@ -328,6 +328,7 @@ In Claude Code, `/android-native-tester` and `/ios-native-tester` start the same
 3. **Preparation.**
    Device check, build check and install when needed, your setup hooks, a reset to the start state, then screen recording and log capture start.
 4. **Testing** in the chosen mode, writing findings as it goes.
+   Follow along on the [live dashboard](#watch-a-session-live) if you like: the screen, every action, the findings, and Pause, Stop or a note for the agent.
 5. **Wrap-up.**
    A video clip per bug, the report checked and built, the collected questions and an offer to reproduce unconfirmed bugs by hand in one round, Jira drafts, and new knowledge about the app added to its notes.
 
@@ -362,6 +363,20 @@ On iOS, the app's unified log is recorded with the session and every action chec
 - **Crashes and performance.** A crash is caught at the action that caused it. On Android each session also records cold start time, janky frames and memory, so a slower build shows up in the report.
 
 In Claude Code, if the short name clashes with another command, use the namespaced form `/mobile-tester:android-native-tester` or `/mobile-tester:ios-native-tester`.
+
+## Watch a session live
+
+`session start` opens a dashboard at `http://127.0.0.1:8765/` (the agent gives you the link; `dashboard: false` in `.mobile-tester/config.yaml` turns it off, and `adt dashboard` / `idt dashboard` starts it by hand).
+It shows, as they happen:
+- the device screen at each observation, with the last tap marked, and a live view (about one frame a second) on Android phones and emulators and on iOS simulators;
+- every action with its target, what was typed into which field (credentials hidden), and taps that changed nothing, crashes and app log issues;
+- the findings so far, the screens visited with the controls not tried yet, and the time box;
+- for Claude Code, the agent's latest message, tokens and cost.
+
+**Pause** blocks the agent's next action on the device until you resume, **Stop** makes it wrap up, and a **note** reaches the agent with its next command (for example "also check the Profile screen").
+When the session ends, the page links to the finished report.
+The server only listens on your own machine and reads the run folder; nothing leaves it.
+The same controls work from a terminal: `adt control pause|resume|stop|note "..."`.
 
 ## What a session produces
 

@@ -26,3 +26,4 @@ autopilot:
   decisions: {}             # only what differs from the defaults in autopilot.md
 
 telemetry: false            # record time, tokens and activity per run (also offered in each session plan)
+dashboard: true             # a live page of each session on 127.0.0.1 (screen, actions, findings, Pause and Stop)

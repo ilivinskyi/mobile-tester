@@ -104,6 +104,8 @@ Taps on an element go to a random point near its center that no other control co
 | Command | Notes |
 |---|---|
 | `session start [--dir RUN] [--package BUNDLE] [--mode explore\|test-case\|repro\|ui-review\|retest] [--charter C] [--ticket T] [--record] [--log] [--time-box MIN] [--install-source S] [--forbidden ...] [--grants ...] [--approvals ...]` | creates `screenshots/ videos/ logs/ bugs/`, `session.json` (platform, device with kind and, for a real device, `personal`, app), `findings.json`; actions log to `logs/actions.jsonl`. Without `--dir`: `<reports dir from .mobile-tester/config.yaml>/<date>-<app>-<mode>[-<ticket>]`. `--log` is skipped with a note on a device |
+| `dashboard [--port 8765] [--no-live] (live view on simulators only) [--stop] [--dir RUN]` | the live page of the active (or last) session on 127.0.0.1; `session start` starts it when the config has `dashboard: true` (`--dashboard` / `--no-dashboard` override). One per device; it stops itself 30 minutes after the session ends |
+| `control status\|pause\|resume\|stop\|note "TEXT"\|wait [--timeout 600]` | the dashboard's controls from a terminal. While paused, device actions are blocked; `wait` returns when the session is resumed or stopped |
 | `session end [--discard-video] [--no-report]` | stops the recording and the app log, then builds the report when `report check` passes |
 | `session status` | active run folder |
 | `record start --out FILE.mp4` / `record stop [--discard]` | `simctl io recordVideo`, on a device `devicectl device capture screen-record` (only where the device offers it, otherwise refused with a reason); writes `FILE.timeline.json` with the wall-clock start |

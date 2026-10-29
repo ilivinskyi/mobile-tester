@@ -104,6 +104,10 @@ While testing:
 - `CRASH right after this action` in an action's output: the crash watch found a new crash report of the app. Capture evidence (`idt observe --image-only`, `idt crashes`), write the finding at once with the step that triggered it, then follow the `crash_found` decision (default: restart the app and continue).
 - Explore mode starts with a breadth tour of every screen and does the screen checks on each first visit (typos, `idt contrast`, back, controls that do nothing): [modes/explore.md](../mobile-tester-shared/modes/explore.md). `idt screens RUN` shows where you haven't been.
 - Watch the time box. Note the halfway point in your progress, and wrap up when it runs out (`time_box_end`).
+- The dashboard (`dashboard: true` in the config, the default for new projects): `idt session start` prints its link, so give it to the user with the plan's first update. Three things can come from it in a command's output:
+  - `NOTE from the person watching the dashboard: ...`: the user's own instruction for this session. Follow it as if they had typed it (it never lifts a never-done item or approves a system change on a personal phone; those still need the plan).
+  - `PAUSED from the dashboard`: run `idt control wait`; it returns when the user resumes (carry on) or stops (wrap up). This isn't a question to ask.
+  - `STOP requested from the dashboard`: no more device actions; go straight to the wrap-up.
 - With autopilot, ask nothing mid-run unless testing can't go on at all (device gone, app won't start, a login only the user can do).
 
 ### 5. Wrap-up

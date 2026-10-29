@@ -97,6 +97,10 @@ While testing:
 - `app log: N new issue(s)` in an action's output: the app logged errors or warnings (errors, caught exceptions, network failures, StrictMode, long frame drops, out of memory) right after that action. Many apps log harmless errors, so judge it: when it explains what you see, or it's an `OutOfMemoryError`, quote the line in the finding and save `logs/logcat.txt` as evidence; otherwise carry on. The wrap-up summary lists them all anyway.
 - Explore mode starts with a breadth tour of every screen and does the screen checks on each first visit (typos, `adt contrast`, back, controls that do nothing): [modes/explore.md](../mobile-tester-shared/modes/explore.md). `adt screens RUN` shows where you haven't been.
 - Watch the time box. Note the halfway point in your progress, and wrap up when it runs out (`time_box_end`).
+- The dashboard (`dashboard: true` in the config, the default for new projects): `adt session start` prints its link, so give it to the user with the plan's first update. Three things can come from it in a command's output:
+  - `NOTE from the person watching the dashboard: ...`: the user's own instruction for this session. Follow it as if they had typed it (it never lifts a never-done item or approves a system change on a personal phone; those still need the plan).
+  - `PAUSED from the dashboard`: run `adt control wait`; it returns when the user resumes (carry on) or stops (wrap up). This isn't a question to ask.
+  - `STOP requested from the dashboard`: no more device actions; go straight to the wrap-up.
 - With autopilot, ask nothing mid-run unless testing can't go on at all (device gone, app won't start, a login only the user can do).
 
 ### 5. Wrap-up

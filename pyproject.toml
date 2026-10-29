@@ -34,3 +34,7 @@ src = ["scripts", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# The dashboard page is one HTML/CSS/JS string: its long lines are markup, not code.
+"scripts/mobiletester/core/dashboard_page.py" = ["E501"]

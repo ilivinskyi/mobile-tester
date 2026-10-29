@@ -4,10 +4,30 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
+import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
 
-from . import contrast, devices, diff, findings, inputs, lifecycle, report, screens, session, telemetry, ui
+from . import (
+    contrast,
+    control,
+    dashboard,
+    devices,
+    diff,
+    findings,
+    inputs,
+    lifecycle,
+    project,
+    report,
+    screens,
+    session,
+    state,
+    telemetry,
+    ui,
+)
+from .proc import detached_kwargs, is_alive, terminate
 from .state import PROJECT_DIR
 
 EXIT_OK, EXIT_USAGE, EXIT_DEVICE, EXIT_NOT_FOUND, EXIT_BLOCKED, EXIT_DECISION = 0, 2, 3, 4, 5, 6
@@ -337,6 +357,113 @@ def typed_log(serial: str, text: str, target: ui.Element | None, elements: list[
     The field is the one tapped with --index, else the focused field of the last observation."""
     field = target if target is not None and target.editable else inputs.focused_field(elements)
     return inputs.log_fields(text, field, inputs.secret_values(session.package(serial)))
+
+
+# --- dashboard ---------------------------------------------------------------------------------
+
+def dashboard_wanted(args) -> bool:
+    """`session start` starts the dashboard when the project config says so (`dashboard: true`), unless
+    --no-dashboard; --dashboard starts it whatever the config says."""
+    if getattr(args, "dashboard", None) is not None:
+        return args.dashboard
+    config, _ = project.load()
+    return bool(config.get("dashboard"))
+
+
+def _dashboard_file(serial: str) -> Path:
+    return state.device_dir(serial) / "dashboard.json"
+
+
+def dashboard_start(serial: str, run: Path, worker: list[str], port: int = 8765) -> str:
+    """Start the dashboard worker for `run` in the background (one per device) and return its URL.
+    `worker` is the command that serves it, without --port."""
+    running = state.read_json(_dashboard_file(serial)) or {}
+    if running.get("pid") and is_alive(running["pid"]):
+        if running.get("run") == str(run.resolve()):
+            return dashboard.url(running["port"])
+        terminate(running["pid"])  # a dashboard of an earlier run: this session gets its own
+    port = dashboard.free_port(port)
+    log = (state.device_dir(serial) / "dashboard.log").open("wb")
+    proc = subprocess.Popen([*worker, "--port", str(port)], stdout=log, stderr=subprocess.STDOUT, **detached_kwargs())
+    state.write_json(_dashboard_file(serial), {"pid": proc.pid, "port": port, "run": str(run.resolve())})
+    deadline = time.monotonic() + 8
+    while time.monotonic() < deadline:
+        with socket.socket() as sock:
+            if sock.connect_ex((dashboard.HOST, port)) == 0:
+                return dashboard.url(port)
+        if proc.poll() is not None:
+            raise RuntimeError(f"the dashboard did not start: see {state.device_dir(serial) / 'dashboard.log'}")
+        time.sleep(0.2)
+    return dashboard.url(port)
+
+
+def dashboard_stop(serial: str) -> bool:
+    running = state.read_json(_dashboard_file(serial)) or {}
+    _dashboard_file(serial).unlink(missing_ok=True)
+    if running.get("pid") and is_alive(running["pid"]):
+        terminate(running["pid"])
+        return True
+    return False
+
+
+def add_dashboard_parsers(sub) -> None:
+    p = sub.add_parser("dashboard", help="a live page of the session on 127.0.0.1: the screen, actions, findings, "
+                                         "screens, the time box, and Pause, Stop and notes for the agent")
+    p.add_argument("--dir", help="run folder (default: the active or last session)")
+    p.add_argument("--port", type=int, default=8765)
+    p.add_argument("--no-live", dest="no_live", action="store_true", help="no live screen, observations only")
+    p.add_argument("--stop", action="store_true", help="stop this device's dashboard")
+    p = sub.add_parser("control", help="the dashboard's Pause, Stop and notes, from the command line; `wait` "
+                                       "blocks while the session is paused")
+    p.add_argument("what", choices=["status", "pause", "resume", "stop", "note", "wait"])
+    p.add_argument("text", nargs="?", help="the note")
+    p.add_argument("--timeout", type=float, default=600, help="`wait`: give up after this many seconds")
+    p = sub.add_parser("_dashboard-worker", help=argparse.SUPPRESS)
+    p.add_argument("dir")
+    p.add_argument("--port", type=int, required=True)
+    p.add_argument("--no-live", dest="no_live", action="store_true")
+
+
+def dashboard_run(serial: str, args) -> Path:
+    run = Path(args.dir) if getattr(args, "dir", None) else session.latest_run_dir(serial)
+    if run is None or not (run / "session.json").is_file():
+        raise NotFound("no session for this device yet: start one with `session start`, or pass --dir RUN")
+    return run
+
+
+def serve_dashboard(serial: str, args, grab) -> int:
+    """`_dashboard-worker`: serve until the session has been over for a while."""
+    from .dashboard_page import PAGE
+
+    board = dashboard.Dashboard(Path(args.dir), state.device_dir(serial), None if args.no_live else grab,
+                                telemetry.claude_code_transcript(Path.cwd()))
+    dashboard.serve(board, args.port, PAGE)
+    return EXIT_OK
+
+
+def cmd_control(serial: str, args, tool: str) -> int:
+    run = session.run_dir(serial)
+    if run is None:
+        print("no active session")
+        return EXIT_USAGE
+    match args.what:
+        case "pause" | "resume" | "stop":
+            control.set_state(run, {"pause": "paused", "resume": "running", "stop": "stopped"}[args.what])
+        case "note":
+            control.add_note(run, args.text or "")
+        case "wait":
+            left = control.wait(run, args.timeout)
+            for note in control.take_notes(run):
+                print(f"NOTE from the person watching the dashboard: {note}")
+            if left == "paused":
+                print(f"still paused after {args.timeout:.0f} s: run `{tool} control wait` again, or wrap up")
+                return EXIT_BLOCKED
+            print("resumed: carry on" if left == "running" else "STOP requested: wrap up now")
+            return EXIT_OK
+    data = control.read(run)
+    waiting = sum(1 for n in data["notes"] if not n.get("delivered"))
+    print(f"session {data['state']}" + (f", {waiting} note(s) not read yet" if waiting else ""))
+    return EXIT_OK
 
 
 def add_plan_args(sp) -> None:

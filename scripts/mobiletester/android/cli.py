@@ -20,7 +20,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ..core import clip, commands, devices, project, restore, screen, session, state, ui
+from ..core import clip, commands, control, devices, project, restore, screen, session, state, ui
 from ..core.commands import (
     EXIT_BLOCKED,
     EXIT_DECISION,
@@ -577,6 +577,28 @@ def cmd_record(args, adb: Adb) -> int:
     return EXIT_OK
 
 
+def _start_dashboard(adb: Adb, run: Path, port: int = 8765, live: bool = True) -> str:
+    worker = [sys.executable, str(entry_script()), "-s", adb.serial, "_dashboard-worker", str(run)]
+    return commands.dashboard_start(adb.serial, run, worker + ([] if live else ["--no-live"]), port)
+
+
+def cmd_dashboard(args, adb: Adb) -> int:
+    if args.stop:
+        print("dashboard stopped" if commands.dashboard_stop(adb.serial) else "no dashboard was running")
+        return EXIT_OK
+    run = commands.dashboard_run(adb.serial, args)
+    print(f"dashboard: {_start_dashboard(adb, run, args.port, not args.no_live)}  ({run.name})")
+    return EXIT_OK
+
+
+def cmd_dashboard_worker(args, adb: Adb) -> int:
+    return commands.serve_dashboard(adb.serial, args, lambda: adb.exec_out("screencap", "-p", timeout=20))
+
+
+def cmd_control(args, adb: Adb) -> int:
+    return commands.cmd_control(adb.serial, args, "adt")
+
+
 def cmd_record_worker(args, adb: Adb) -> int:
     capture.record_worker(adb, Path(args.stop_flag))
     return EXIT_OK
@@ -630,6 +652,11 @@ def cmd_session(args, adb: Adb) -> int:
             active["started_capture"] = started
             state.write_json(state.device_dir(adb.serial) / "session.json", active)
             print(f"session -> {directory}" + (f" ({', '.join(started)} running)" if started else ""))
+            if commands.dashboard_wanted(args):
+                try:
+                    print(f"dashboard: {_start_dashboard(adb, directory)}  (give the user this link)")
+                except (OSError, RuntimeError) as exc:
+                    print(f"note: the dashboard did not start ({exc}); the session runs without it")
         case "end":
             active = session.active(adb.serial)
             if not active:
@@ -915,6 +942,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     commands.add_inspect_parser(sub, "adt", "uiautomator XML")
     commands.add_contrast_parser(sub)
+    commands.add_dashboard_parsers(sub)
 
     p = sub.add_parser("tap", help="tap an element or point")
     target = p.add_mutually_exclusive_group(required=True)
@@ -1048,6 +1076,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--charter")
     sp.add_argument("--ticket")
     sp.add_argument("--record", action="store_true", help="record the screen to videos/session.mp4")
+    sp.add_argument("--dashboard", action=argparse.BooleanOptionalAction, default=None,
+                    help="start the live dashboard (default: `dashboard` in the project config)")
     commands.add_plan_args(sp)
     sp.add_argument("--logcat", action="store_true", help="stream logcat to logs/logcat.txt")
     sp = ses.add_parser("end", help="stop capture and build the report (when report check passes)")
@@ -1136,6 +1166,7 @@ _WITH_DEVICE = {
     "session": cmd_session, "touches": cmd_touches, "env": cmd_env, "net": cmd_net,
     "notifications": cmd_notifications, "media": cmd_media, "location": cmd_location, "bio": cmd_bio,
     "hook": cmd_script, "check": cmd_script, "perf": cmd_perf, "_record-worker": cmd_record_worker,
+    "dashboard": cmd_dashboard, "_dashboard-worker": cmd_dashboard_worker, "control": cmd_control,
 }
 
 
@@ -1149,7 +1180,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd in _NO_DEVICE:
             return _NO_DEVICE[args.cmd](args)
         adb = Adb(args.serial)
+        for line in control.gate(session.run_dir(adb.serial), args.cmd, "adt"):
+            print(line)
         return _WITH_DEVICE[args.cmd](args, adb)
+    except control.Halted as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_BLOCKED
     except Blocked as exc:
         print(exc, file=sys.stderr)
         return EXIT_BLOCKED

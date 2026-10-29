@@ -17,7 +17,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ..core import clip, commands, devices, project, restore, screen, session, state, ui
+from ..core import clip, commands, control, devices, project, restore, screen, session, state, ui
 from ..core.commands import (
     EXIT_BLOCKED,
     EXIT_DECISION,
@@ -328,6 +328,30 @@ def cmd_inspect(args, dev: Device) -> int:
     tree = json.loads((state.device_dir(dev.udid) / "latest_tree.json").read_text(encoding="utf-8"))
     print("\n".join(ui.inspect_lines(el, *hierarchy.raw_node(tree, el))))
     return EXIT_OK
+
+
+def _start_dashboard(dev: Device, run: Path, port: int = 8765, live: bool = True) -> str:
+    worker = [sys.executable, str(entry_script()), "-s", dev.udid, "_dashboard-worker", str(run)]
+    # A live view only on simulators: on a device, screenshots go through the runner the agent is using.
+    live = live and not dev.physical
+    return commands.dashboard_start(dev.udid, run, worker + ([] if live else ["--no-live"]), port)
+
+
+def cmd_dashboard(args, dev: Device) -> int:
+    if args.stop:
+        print("dashboard stopped" if commands.dashboard_stop(dev.udid) else "no dashboard was running")
+        return EXIT_OK
+    run = commands.dashboard_run(dev.udid, args)
+    print(f"dashboard: {_start_dashboard(dev, run, args.port, not args.no_live)}  ({run.name})")
+    return EXIT_OK
+
+
+def cmd_dashboard_worker(args, dev: Device) -> int:
+    return commands.serve_dashboard(dev.udid, args, lambda: simctl.screenshot(dev.udid))
+
+
+def cmd_control(args, dev: Device) -> int:
+    return commands.cmd_control(dev.udid, args, "idt")
 
 
 def cmd_contrast(args, dev: Device) -> int:
@@ -801,6 +825,11 @@ def cmd_session(args, dev: Device) -> int:
             active["started_capture"] = started
             state.write_json(state.device_dir(dev.udid) / "session.json", active)
             print(f"session -> {directory}" + (f" ({', '.join(started)} running)" if started else ""))
+            if commands.dashboard_wanted(args):
+                try:
+                    print(f"dashboard: {_start_dashboard(dev, directory)}  (give the user this link)")
+                except (OSError, RuntimeError) as exc:
+                    print(f"note: the dashboard did not start ({exc}); the session runs without it")
         case "end":
             active = session.active(dev.udid)
             if not active:
@@ -910,6 +939,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     commands.add_inspect_parser(sub, "idt", "UI tree")
     commands.add_contrast_parser(sub)
+    commands.add_dashboard_parsers(sub)
 
     p = sub.add_parser("tap", help="tap an element or point (points, not pixels)")
     target = p.add_mutually_exclusive_group(required=True)
@@ -1054,6 +1084,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--charter")
     sp.add_argument("--ticket")
     sp.add_argument("--record", action="store_true", help="record the screen to videos/session.mp4")
+    sp.add_argument("--dashboard", action=argparse.BooleanOptionalAction, default=None,
+                    help="start the live dashboard (default: `dashboard` in the project config)")
     commands.add_plan_args(sp)
     sp.add_argument("--log", action="store_true", help="stream the app's log to logs/app.log (simulators only)")
     sp = ses.add_parser("end", help="stop capture and build the report (when report check passes)")
@@ -1077,6 +1109,7 @@ _NO_DEVICE = {"doctor": cmd_doctor, "devices": cmd_devices, "report": commands.c
               "screens": commands.cmd_screens}
 _WITH_DEVICE = {
     "runner": cmd_runner, "info": cmd_info, "observe": cmd_observe, "inspect": cmd_inspect, "contrast": cmd_contrast,
+    "dashboard": cmd_dashboard, "_dashboard-worker": cmd_dashboard_worker, "control": cmd_control,
     "tap": cmd_tap,
     "type": cmd_type, "key": cmd_key, "swipe": cmd_swipe, "scroll": cmd_scroll, "wait": cmd_wait, "app": cmd_app,
     "permissions": cmd_permissions, "env": cmd_env, "media": cmd_media, "clipboard": cmd_clipboard,
@@ -1093,7 +1126,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.cmd in _NO_DEVICE:
             return _NO_DEVICE[args.cmd](args)
-        return _WITH_DEVICE[args.cmd](args, _device(args))
+        dev = _device(args)
+        for line in control.gate(session.run_dir(dev.udid), args.cmd, "idt"):
+            print(line)
+        return _WITH_DEVICE[args.cmd](args, dev)
+    except control.Halted as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_BLOCKED
     except Blocked as exc:
         print(exc, file=sys.stderr)
         return EXIT_BLOCKED

@@ -3,7 +3,7 @@
 **Let your AI agent test your Android or iOS app the way a person would, on a real phone, an emulator, an iOS simulator or a real iPhone, and hand you a QA report you can act on.**
 
 Mobile Tester is a set of agent skills plus two command-line tools.
-It works with any agent that supports [Agent Skills](https://agentskills.io): Claude Code, Codex, OpenCode, pi and others.
+It works with any agent that supports [Agent Skills](https://agentskills.io): Claude Code, Codex, OpenCode, pi, Gemini CLI and others.
 It runs exploratory testing, written test cases, bug reproduction and UI/accessibility reviews on any Android or iOS app.
 It drives the device with human-like input, checks every step, records evidence, and ends each session with the same standard report and Jira-ready bug drafts.
 
@@ -16,7 +16,7 @@ Explore the Notes app on my Pixel for 15 minutes.
 Reproduce PROJ-123 on the iPhone simulator.
 ```
 
-In Claude Code the same sessions also start with `/android-native-tester` and `/ios-native-tester`.
+In Claude Code the same sessions also start with `/android-native-tester` and `/ios-native-tester`; other agents have their own way to name a skill (see [Start a session in your agent](#start-a-session-in-your-agent)).
 
 iOS support is new: it works on simulators, and has no performance or memory measurements yet.
 Support for real iPhones and iPads is newer still: so far it has run on one iPhone, over USB and Wi-Fi.
@@ -103,7 +103,7 @@ Both CLIs share one core: the report, the finding lifecycle, sessions, guardrail
 
 ## Requirements
 
-- An agent that supports [Agent Skills](https://agentskills.io): Claude Code, Codex, OpenCode, pi and others (see "Install in any agent").
+- An agent that supports [Agent Skills](https://agentskills.io): Claude Code, Codex, OpenCode, pi, Gemini CLI and others (see "Install in any agent").
 - For iOS: a Mac with Xcode (simulators come with it), plus uv and ffmpeg as below. The Android tools are not needed for iOS, and the other way round.
 - Android SDK Platform-Tools (`adb`).
 - [uv](https://docs.astral.sh/uv/), which runs the bundled Python tool with its dependencies; no manual Python setup.
@@ -211,7 +211,7 @@ The app under test is whatever is installed on the device (App Store apps too), 
 
 ## Install in any agent
 
-The skills follow the open [Agent Skills](https://agentskills.io) format, so any agent that reads `SKILL.md` folders can use them: Codex, OpenCode, pi, Claude Code and others.
+The skills follow the open [Agent Skills](https://agentskills.io) format, so any agent that reads `SKILL.md` folders can use them: Codex, OpenCode, pi, Gemini CLI, Claude Code and others.
 Two parts: the `adt` and `idt` commands the skills call, and the skill folders.
 
 1. Install `adt` and `idt` as commands (needs [uv](https://docs.astral.sh/uv/)):
@@ -229,7 +229,8 @@ Two parts: the `adt` and `idt` commands the skills call, and the skill folders.
    ```
 
 3. Copy the folders in `skills/` into a skills folder your agent reads.
-   For all your projects (global), `~/.agents/skills/` is read by Codex, OpenCode and pi:
+   Copy all of them, side by side: the two testers read their shared files from `mobile-tester-shared` next to them.
+   For all your projects (global), `~/.agents/skills/` is read by Codex, OpenCode, pi and Gemini CLI:
 
    ```bash
    mkdir -p ~/.agents/skills && cp -R ~/mobile-tester/skills/. ~/.agents/skills/
@@ -242,12 +243,14 @@ Two parts: the `adt` and `idt` commands the skills call, and the skill folders.
    ```
 
 4. Start a new agent session and ask it to test an app, for example "explore the Notes app on my phone for 15 minutes".
+   [Start a session in your agent](#start-a-session-in-your-agent) shows how each agent picks the skill and what to allow.
 
 | Agent | Global (all projects) | One project only |
 |---|---|---|
 | Codex | `~/.agents/skills/` | `.agents/skills/` |
 | OpenCode | `~/.agents/skills/` or `~/.config/opencode/skills/` | `.agents/skills/` or `.opencode/skills/` |
-| pi | `~/.agents/skills/` or `~/.pi/agent/skills/` | `.agents/skills/` (after you trust the project) or `.pi/skills/` |
+| pi | `~/.agents/skills/` or `~/.pi/agent/skills/` | `.agents/skills/` or `.pi/skills/` (both after you trust the project) |
+| Gemini CLI | `~/.agents/skills/` or `~/.gemini/skills/` | `.agents/skills/` or `.gemini/skills/` |
 | Claude Code | `~/.claude/skills/`, or the plugin below | `.claude/skills/` |
 | Other Agent Skills agents | their skills folder | their project skills folder |
 
@@ -295,6 +298,7 @@ claude plugin install mobile-tester@mobile-tester
 
 Start a new session afterwards.
 Typing `/` should now list `android-native-tester` and `ios-native-tester`.
+If the short name clashes with another command, use the namespaced form `/mobile-tester:android-native-tester` or `/mobile-tester:ios-native-tester`.
 
 To try it without installing, clone the repo and load it for one session:
 
@@ -305,6 +309,165 @@ git clone https://github.com/ilivinskyi/mobile-tester.git
 claude --plugin-dir ./mobile-tester
 ```
 
+## Start a session in your agent
+
+Asking in plain words works in every agent: the testers' descriptions tell it when to load them.
+Each agent also has its own way to name a skill directly:
+
+| Agent | Name the skill directly | See which skills it found |
+|---|---|---|
+| Claude Code | `/android-native-tester explore the Notes app for 15 minutes` | type `/` |
+| Codex | `$android-native-tester explore the Notes app for 15 minutes`, or pick it from `/skills` | `/skills` |
+| OpenCode | no command for skills: say "use the android-native-tester skill to ...", or add a command (see [Add a slash command or a tool](#add-a-slash-command-or-a-tool)) | `opencode debug skill`, in a terminal |
+| pi | `/skill:android-native-tester explore the Notes app for 15 minutes` | type `/skill:`; run `/reload` if pi was open when you copied the skills |
+| Gemini CLI | no command for skills: ask in plain words, or add a command (below) | `/skills list`, or `gemini skills list` in a terminal; `/skills reload` after copying |
+
+For iOS, use `ios-native-tester` in place of `android-native-tester`.
+Start the agent in the folder where reports and settings should live (see "Run your first session").
+
+### Codex
+
+Codex runs commands in a sandbox.
+`adt` needs the adb server and the phone, `idt` needs Xcode's tools and the simulator, and both keep your device list in `~/.config/mobile-tester/`, outside the project.
+If `adt doctor` or `idt doctor` finds no device inside Codex but does in a terminal, the sandbox is in the way: approve running them outside the sandbox when Codex asks, or loosen the sandbox for testing sessions in Codex's settings.
+Codex picks up new skills by itself; restart it if they don't show in `/skills`.
+
+### OpenCode
+
+OpenCode loads a skill through its `skill` tool when your request matches the skill's description.
+The testers then read their shared files in `~/.agents/skills/mobile-tester-shared/`, outside your project, and OpenCode asks before reading outside the project.
+To allow the skills folder once and for all, add this to `opencode.json` in the project (or to `~/.config/opencode/opencode.json` for every project):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "external_directory": {
+      "~/.agents/skills/**": "allow"
+    }
+  }
+}
+```
+
+OpenCode also reads `~/.claude/skills/` and `.claude/skills/`, and skill names must be unique across all its folders: keep one copy of the skills.
+
+### pi
+
+Skills in your home folder load in every session.
+Skills in a project's `.agents/skills/` or `.pi/skills/` load only after you trust the project.
+
+### Gemini CLI
+
+Gemini asks you before it activates a skill, and then gives the agent that skill's folder.
+The testers also read `mobile-tester-shared` next to them; if Gemini refuses to read those files, start it with the whole skills folder in its workspace:
+
+```bash
+gemini --include-directories ~/.agents/skills
+```
+
+### Every agent but Claude Code
+
+- The skills call the `adt` and `idt` commands from step 1 of "Install in any agent"; only the Claude Code plugin brings its own copy.
+- The report's technical data reads tokens and cost from Claude Code's transcript. In other agents the report says they weren't collected; everything else in it is the same.
+- The testers ask their questions with the agent's question tool when it has one, otherwise in chat as a short numbered list.
+
+## Add a slash command or a tool
+
+Claude Code, Codex and pi can already name a skill directly (see the table above).
+In OpenCode and Gemini CLI you can add a short command that does the same.
+OpenCode can also give the agent `adt` and `idt` as tools it calls like functions.
+
+### OpenCode: a slash command
+
+Create `~/.config/opencode/commands/android-native-tester.md` (for one project: `.opencode/commands/android-native-tester.md`):
+
+```markdown
+---
+description: Test an Android app with Mobile Tester (explore, test-case, repro, ui-review, retest, memory)
+---
+
+Load the android-native-tester skill and follow it for this request: $ARGUMENTS
+```
+
+The file name is the command name, and `$ARGUMENTS` is whatever you type after it.
+Restart OpenCode, then:
+
+```
+/android-native-tester explore the Notes app for 15 minutes
+```
+
+For iOS, make `ios-native-tester.md` the same way, with `ios-native-tester` in it.
+
+### OpenCode: run `adt` and `idt` without asking
+
+OpenCode runs shell commands without asking unless your config says otherwise.
+If yours asks before every `bash` command, allow just the two device tools in `opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": {
+      "*": "ask",
+      "adt *": "allow",
+      "idt *": "allow"
+    }
+  }
+}
+```
+
+The last matching rule wins, so keep `"*"` first.
+
+### OpenCode: `adt` as a custom tool
+
+The skills run `adt` and `idt` in the shell, so this is optional.
+A custom tool turns `adt` into a function the agent calls by name with a list of arguments: no shell reads them, so labels with spaces, quotes or `;` need no escaping, and each device command shows as its own tool call.
+
+Create `.opencode/tools/adt.ts` in the project (or `~/.config/opencode/tools/adt.ts` for every project):
+
+```ts
+import { tool } from "@opencode-ai/plugin"
+
+export default tool({
+  description:
+    "Run the Mobile Tester Android command line: adt ARGS. Use it for every adt command the android-* skills give, " +
+    'instead of bash. Examples of args: ["doctor"], ["-s", "SERIAL", "observe"], ["tap", "--text", "Save"].',
+  args: {
+    args: tool.schema.array(tool.schema.string()).describe("Everything after `adt`, one item per argument"),
+  },
+  async execute(args, context) {
+    const result = await Bun.$`adt ${args.args}`.cwd(context.directory).nothrow().quiet()
+    const output = `${result.stdout.toString()}${result.stderr.toString()}`.trim()
+    return result.exitCode === 0 ? output : `adt exited with code ${result.exitCode}\n${output}`
+  },
+})
+```
+
+- The file name is the tool name: `adt`.
+- `Bun.$` passes each item of the list as one argument.
+- The command runs in the session's folder, where `.mobile-tester/` lives.
+- A non-zero exit code goes back to the agent with the output; the testers act on it (for example, `adt type` exits with 6 when a character can't be typed).
+
+For iOS, copy the file to `idt.ts` and replace `adt` with `idt` in it.
+Restart OpenCode; the agent now has an `adt` tool.
+So that the testers use it instead of the shell, say so in the request ("run adt through the adt tool"), or add that line to the project's `AGENTS.md`.
+
+### Gemini CLI: a slash command
+
+Create `~/.gemini/commands/android-native-tester.toml` (for one project: `.gemini/commands/android-native-tester.toml`):
+
+```toml
+description = "Test an Android app with Mobile Tester"
+prompt = "Use the android-native-tester skill for this request: {{args}}"
+```
+
+Run `/commands reload` (or restart Gemini), then `/android-native-tester explore the Notes app for 15 minutes`.
+
+### pi: a tool
+
+`/skill:android-native-tester` already works.
+To give pi `adt` as a tool, write an extension that calls `pi.registerTool`; see [pi's extension docs](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md).
+
 ## Run your first session
 
 Open your agent in a folder where reports and settings should live (for example a QA folder or your app's repository), and ask it to test your app:
@@ -314,7 +477,7 @@ Test the Notes app on my phone for 15 minutes.
 ```
 
 For an iOS app, say so ("on the iPhone simulator", "on my iPhone"); everything below works the same, with a simulator or iPhone in place of the Android phone.
-In Claude Code, `/android-native-tester` and `/ios-native-tester` start the same skills.
+To name the skill directly instead (`/android-native-tester` in Claude Code, `$android-native-tester` in Codex, and so on), see [Start a session in your agent](#start-a-session-in-your-agent).
 
 1. **Onboarding (first time only).**
    Three open questions: what your app is about, how you want it tested, and what must never happen.
@@ -353,6 +516,7 @@ The tools also cover what manual QA always checks:
 - **Build comparison:** `report diff RUN_A RUN_B` compares two runs: performance, new findings, issues gone, new log errors, screens reached.
 - **Technical data:** `report telemetry RUN` records how a run was produced: agent tokens and cost at API list prices (from the Claude Code transcript), time per phase, tool calls, device actions and evidence size.
   It is shown at the end of the report, and every run adds a row to `<reports dir>/telemetry.csv`, so the skill's cost and speed can be tracked over time.
+
 On iOS, the app's unified log is recorded with the session and every action checks for a new crash report.
 
 ### After the session
@@ -360,8 +524,6 @@ On iOS, the app's unified log is recorded with the session and every action chec
 - **Confirm findings by hand.** Tell the agent "B3 reproduced 2 of 2 on my phone" (or run `adt report confirm` / `idt report confirm`): the finding gets a history entry, its manual count and status update, and the report is rebuilt.
 - **Known issues.** Every bug lands in the app's known-issues registry with a regression test case draft. Later sessions link a known bug found again ("K-3 seen again") instead of reporting it as new, and reopen fixed issues that come back.
 - **Crashes and performance.** A crash is caught at the action that caused it. On Android each session also records cold start time, janky frames and memory, so a slower build shows up in the report.
-
-In Claude Code, if the short name clashes with another command, use the namespaced form `/mobile-tester:android-native-tester` or `/mobile-tester:ios-native-tester`.
 
 ## What a session produces
 
